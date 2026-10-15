@@ -1,0 +1,2001 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Focus Guard</title>
+    <style>
+        :root {
+            --bg: #0B6A3B;
+            --cream: #F7F5ED;
+        }
+
+        body {
+            font-family: 'Baloo Da 2', system-ui, sans-serif;
+            background-color: var(--bg);
+            color: #000;
+            user-select: none;
+            overflow-x: hidden;
+            margin: 0;
+            min-height: 100vh;
+            min-height: 100dvh;
+        }
+        input { user-select: text; }
+
+        :focus-visible {
+            outline: 3px solid #000;
+            outline-offset: 3px;
+        }
+
+        .app-view {
+            width: 100%;
+            min-height: 100vh;
+            min-height: 100dvh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            box-sizing: border-box;
+            padding: max(1.25rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) max(1.25rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+        }
+        @media (min-width: 640px) {
+            .app-view { padding: max(2rem, env(safe-area-inset-top)) max(1.5rem, env(safe-area-inset-right)) max(2rem, env(safe-area-inset-bottom)) max(1.5rem, env(safe-area-inset-left)); }
+        }
+
+
+        .screen {
+            display: none;
+            width: 100%;
+            max-width: 960px;
+            min-height: 80vh;
+            min-height: 80svh;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .screen:focus { outline: none; }
+        .screen.active {
+            display: flex;
+            animation: screenIn 0.25s ease-out;
+        }
+        @keyframes screenIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+
+        .mark {
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            font-weight: 900;
+            line-height: 1;
+        }
+        .mark-on {
+            border-radius: 50%;
+            background-color: #1a1a1a;
+            color: #00b050;
+            font-size: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        .mark-off {
+            color: #ff0000;
+            font-size: 30px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .row-btn {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            text-align: left;
+            background: transparent;
+            border: 0;
+            color: inherit;
+            font: inherit;
+            cursor: pointer;
+            border-radius: 0.75rem;
+            transition: background-color 0.15s;
+        }
+        .row-btn:hover { background: rgba(0,0,0,0.08); }
+
+        /* ---- Nav buttons (Back / Next): chunky, outlined, press-down ---- */
+        .nav-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.55rem;
+            height: 2.9rem;
+            padding: 0 1.25rem;
+            background: #F7F5ED;
+            color: #000;
+            border: 3px solid #000;
+            border-radius: 1rem;
+            font-weight: 800;
+            font-size: 1.05rem;
+            line-height: 1;
+            box-shadow: 0 5px 0 #000;
+            cursor: pointer;
+            transition: transform 0.1s ease, box-shadow 0.1s ease, background-color 0.15s ease;
+        }
+        .nav-btn:hover  { background: #ffffff; transform: translateY(-1px); box-shadow: 0 6px 0 #000; }
+        .nav-btn:active { transform: translateY(5px); box-shadow: 0 0 0 #000; }
+        .nav-btn:focus-visible { outline: 3px solid #fff; outline-offset: 4px; }
+        .nav-btn .nav-ico {
+            display: flex;
+            align-items: center;
+            font-size: 1rem;
+            transition: transform 0.15s ease;
+        }
+        .nav-btn.back:hover .nav-ico { transform: translateX(-3px); }
+        .nav-btn.next { background: #FACC15; padding: 0 1.4rem; }
+        .nav-btn.next:hover { background: #FDE047; }
+        .nav-btn.next:hover .nav-ico { transform: translateX(3px); }
+        .nav-btn-lg { height: 3.5rem; padding: 0 1.9rem; font-size: 1.25rem; border-radius: 1.15rem; }
+        .nav-btn-lg .nav-ico { font-size: 1.15rem; }
+        .nudge .nav-ico { animation: nudge 1.6s ease-in-out infinite; }
+        @keyframes nudge {
+            0%, 100% { transform: translateX(0); }
+            50%      { transform: translateX(4px); }
+        }
+        .glass-card .nav-btn { box-shadow: 0 5px 0 #065f46; }
+        .glass-card .nav-btn:hover { box-shadow: 0 6px 0 #065f46; }
+        .glass-card .nav-btn:active { box-shadow: 0 0 0 #065f46; }
+
+        /* Lock chip on list rows */
+        .lock-chip {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.4rem;
+            min-width: 4.4rem;
+            padding: 0.35rem 0.7rem;
+            border-radius: 0.75rem;
+            background: #000;
+            color: #F7F5ED;
+            font-variant-numeric: tabular-nums;
+            font-weight: 800;
+            font-size: 0.85rem;
+            line-height: 1;
+            letter-spacing: 0.02em;
+            box-shadow: 0 3px 0 rgba(0,0,0,0.3);
+        }
+        .lock-chip svg { color: #FACC15; width: 0.7rem; height: 0.7rem; }
+        .row-btn[data-locked] { background: rgba(0,0,0,0.1); }
+
+        /* Small square action button (remove rule etc.) */
+        .mini-btn {
+            width: 2.2rem;
+            height: 2.2rem;
+            border-radius: 0.75rem;
+            background: #F7F5ED;
+            border: 2px solid #000;
+            color: #000;
+            box-shadow: 0 3px 0 #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            flex-shrink: 0;
+            cursor: pointer;
+            transition: transform 0.1s ease, box-shadow 0.1s ease, background-color 0.15s ease;
+        }
+        .mini-btn:hover  { background: #fecaca; }
+        .mini-btn:active { transform: translateY(3px); box-shadow: 0 0 0 #000; }
+        .mini-btn:disabled, .mini-btn:disabled:hover, .mini-btn:disabled:active {
+            opacity: 0.35; cursor: not-allowed; background: #F7F5ED; transform: none; box-shadow: 0 3px 0 #000;
+        }
+
+        /* Arrow tile on list rows */
+        .go-ico {
+            width: 2.2rem;
+            height: 2.2rem;
+            border-radius: 0.75rem;
+            background: #F7F5ED;
+            border: 2px solid #000;
+            color: #000;
+            box-shadow: 0 3px 0 #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            flex-shrink: 0;
+            transition: transform 0.12s ease, background-color 0.15s ease, box-shadow 0.12s ease;
+        }
+        .row-btn:hover .go-ico { background: #FACC15; transform: translateX(3px); }
+        .row-btn:active .go-ico { transform: translate(3px, 3px); box-shadow: 0 0 0 #000; }
+        .glass-card :focus-visible { outline-color: #fff; }
+
+        /* Small phones: tighter rows, chips and buttons so nothing overflows */
+        @media (max-width: 400px) {
+            .lock-chip { min-width: 0; padding: 0.3rem 0.5rem; font-size: 0.72rem; gap: 0.3rem; }
+            .row-btn { gap: 0.4rem; }
+            .nav-btn, .nav-btn.next { padding: 0 1rem; font-size: 1rem; }
+            .nav-btn-lg, .nav-btn-lg.next { height: 3.2rem; padding: 0 1.4rem; font-size: 1.1rem; }
+        }
+        /* Narrow screens: Apps and Browser stay side by side, so keep rows compact */
+        @media (max-width: 639px) {
+            #apps-list .go-ico, #sites-list .go-ico { width: 1.8rem; height: 1.8rem; font-size: 0.7rem; border-radius: 0.55rem; }
+            #apps-list .mini-btn, #sites-list .mini-btn { width: 1.8rem; height: 1.8rem; border-radius: 0.55rem; }
+            #apps-list .row-btn, #sites-list .row-btn { gap: 0.2rem; padding-left: 0.1rem; padding-right: 0.1rem; }
+            #apps-list > li, #sites-list > li { gap: 0.15rem; }
+            #apps-list .lock-chip svg, #sites-list .lock-chip svg { display: none; }
+            #apps-list .lock-chip, #sites-list .lock-chip { min-width: 0; padding: 0.25rem 0.4rem; font-size: 0.7rem; }
+            #screen-2 .nav-btn { height: 2.6rem; padding: 0 0.7rem; gap: 0.35rem; font-size: 0.9rem; white-space: nowrap; }
+        }
+        /* Touch screens: bigger tap targets */
+        @media (pointer: coarse) {
+            .mini-btn { width: 2.5rem; height: 2.5rem; }
+            .chip { min-height: 2.5rem; }
+            .chip.sub { min-height: 2.25rem; }
+        }
+        /* Phone in landscape: don't force tall screens */
+        @media (max-height: 520px) and (orientation: landscape) {
+            .screen { min-height: 0; }
+        }
+
+        /* Long lists scroll inside their own box on wide screens */
+        @media (min-width: 768px) {
+            .list-scroll { max-height: min(52vh, 30rem); overflow-y: auto; padding: 0.25rem 0.6rem 0.5rem 0.25rem; scrollbar-width: thin; }
+        }
+        .nav-btn:disabled, .nav-btn:disabled:hover, .nav-btn:disabled:active {
+            opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: 0 5px 0 #000;
+        }
+
+        /* Quick-pick chips (site picker + section suggestions) */
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.35rem 0.85rem;
+            background: #F7F5ED;
+            color: #000;
+            border: 2px solid #000;
+            border-radius: 0.75rem;
+            font-weight: 800;
+            font-size: 0.95rem;
+            line-height: 1.2;
+            box-shadow: 0 3px 0 #000;
+            cursor: pointer;
+            transition: transform 0.1s ease, box-shadow 0.1s ease, background-color 0.15s ease;
+        }
+        .chip:hover { background: #ffffff; }
+        .chip:active { transform: translateY(3px); box-shadow: 0 0 0 #000; }
+        .chip.on { background: #FACC15; }
+        .chip:disabled { opacity: 0.5; cursor: not-allowed; }
+        .chip.sub { font-size: 0.85rem; padding: 0.25rem 0.7rem; background: transparent; box-shadow: none; border-style: dashed; }
+        .chip.sub:hover { background: rgba(0,0,0,0.08); }
+        .chip.sub:active { transform: none; }
+
+        .wavy { stroke: #000; fill: none; }
+        .ico { width: 1em; height: 1em; display: inline-block; flex-shrink: 0; vertical-align: -0.125em; }
+        .nav-ico .ico { width: 1.05em; height: 1.05em; }
+        .go-ico .ico, .mini-btn .ico { width: 1.1em; height: 1.1em; }
+
+        .glass-card {
+            background: rgba(18, 28, 23, 0.88);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+        .pulse-glow { animation: pulse-green 3s infinite ease-in-out; }
+        @keyframes pulse-green {
+            0%, 100% { box-shadow: 0 0 25px rgba(16, 185, 129, 0.2); }
+            50%      { box-shadow: 0 0 50px rgba(16, 185, 129, 0.45); }
+        }
+
+        .brain-animated { animation: pulse-brain 3.5s infinite ease-in-out; }
+        @keyframes pulse-brain {
+            0%, 100% { transform: scale(1); }
+            50%      { transform: scale(1.04); }
+        }
+
+        /* Notebook timer */
+        .notebook-container {
+            width: 100%;
+            max-width: 480px;
+            margin: 0 auto;
+        }
+        .notebook {
+            position: relative;
+            background: linear-gradient(135deg, #ffffff 0%, #f7f5ed 100%);
+            border-radius: 16px 28px 28px 16px;
+            box-shadow:
+                -12px 0 0 #1b2620,
+                -20px 0 0 #0f1713,
+                0 30px 60px -10px rgba(0, 0, 0, 0.7),
+                inset 0 0 30px rgba(0, 0, 0, 0.05);
+            border: 2px solid #2d3748;
+            padding: 20px 10px 20px 44px;
+            color: #1a202c;
+            overflow: hidden;
+        }
+        @media (min-width: 640px) {
+            .notebook { padding: 28px 24px 28px 52px; }
+        }
+        .notebook-spirals {
+            position: absolute;
+            left: 10px;
+            top: 20px;
+            bottom: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            z-index: 35;
+        }
+        .spiral-ring {
+            width: 24px;
+            height: 12px;
+            background: linear-gradient(180deg, #f3f4f6 0%, #9ca3af 40%, #4b5563 80%, #111827 100%);
+            border-radius: 12px;
+            box-shadow: 3px 3px 6px rgba(0,0,0,0.5);
+            border: 1px solid #1f2937;
+        }
+        .notebook-paper {
+            background-image:
+                linear-gradient(90deg, rgba(239, 68, 68, 0.25) 1px, transparent 1px),
+                repeating-linear-gradient(transparent, transparent 31px, #e2e8f0 32px);
+            background-size: 100% 100%, 100% 32px;
+            background-position: 28px 0, 0 10px;
+            min-height: 220px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            z-index: 10;
+        }
+
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button { -webkit-appearance: none; appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; appearance: textfield; }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation: none !important;
+                transition: none !important;
+            }
+        }
+    </style>
+    <!-- Local build (npm run prep): tailwind.css + fonts/ -- internet lage na. Inline style er pore, ager CDN er moto order -->
+    <link rel="stylesheet" href="fonts/fonts.css">
+    <link rel="stylesheet" href="tailwind.css" onerror="window.__noLocalCss=1">
+    <script>
+
+window.addEventListener('DOMContentLoaded', function () {
+            if (window.__noLocalCss) {
+                console.warn('tailwind.css missing - falling back to CDN. Run: npm run prep');
+                var s = document.createElement('script'); s.src = 'https://cdn.tailwindcss.com'; document.head.appendChild(s);
+            }
+        });
+    </script>
+</head>
+<body class="bg-[#0B6A3B] text-black">
+
+    <!-- Toast -->
+    <div id="toast-notification" role="status" aria-live="polite"
+         class="fixed top-[max(1.5rem,env(safe-area-inset-top))] left-1/2 -translate-x-1/2 z-50 transition-all duration-500 transform -translate-y-28 opacity-0 pointer-events-none w-11/12 max-w-md">
+        <div class="bg-amber-100 text-amber-950 px-5 py-4 rounded-3xl shadow-[0_20px_40px_rgba(0,0,0,0.3)] flex items-center gap-4 border-4 border-amber-300">
+            <div class="w-10 h-10 rounded-2xl bg-amber-400 text-amber-950 flex items-center justify-center text-2xl flex-shrink-0 shadow-md transform -rotate-6 animate-bounce" aria-hidden="true">😊</div>
+            <div class="flex flex-col flex-grow pr-2">
+                <span id="toast-text" lang="bn" class="text-sm sm:text-base font-bold text-amber-950 leading-snug"></span>
+            </div>
+            <button onclick="hideNotification()" aria-label="Close"
+                    class="w-8 h-8 rounded-full bg-amber-200 hover:bg-amber-300 text-amber-900 transition flex items-center justify-center flex-shrink-0 font-bold">
+                <svg class="ico text-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- Lock confirmation -->
+    <div id="confirm-modal" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60"
+         role="dialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-body">
+        <div class="glass-card text-white rounded-3xl p-6 sm:p-8 max-w-sm w-full max-h-[90dvh] overflow-y-auto text-center space-y-4">
+            <div class="mx-auto w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-300 flex items-center justify-center text-xl" aria-hidden="true">
+                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+            </div>
+            <h3 id="confirm-title" class="text-xl sm:text-2xl font-extrabold">Lock this block?</h3>
+            <p id="confirm-body" class="text-sm sm:text-base text-emerald-100/90 leading-relaxed"></p>
+            <div class="flex gap-3 pt-2">
+                <button id="confirm-cancel" type="button" class="nav-btn flex-1">Cancel</button>
+                <button id="confirm-ok" type="button" class="nav-btn next flex-1">Lock It In</button>
+            </div>
+        </div>
+    </div>
+
+    <main class="app-view">
+
+        <!-- Screen 1 -->
+        <section id="screen-1" tabindex="-1" class="screen active text-center items-center my-auto">
+            <div class="flex-1 flex flex-col items-center justify-center my-auto space-y-8 w-full py-4">
+                <div class="relative brain-animated my-2" aria-hidden="true">
+                    <div class="text-black font-black text-2xl sm:text-3xl tracking-widest mb-2">?! ?! ?! ?!</div>
+                    <svg class="w-36 h-36 sm:w-52 sm:h-52 mx-auto text-black" viewBox="0 0 200 200" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M 60,110 C 40,100 30,80 45,60 C 50,40 70,30 90,35 C 100,20 125,20 140,30 C 155,25 175,35 170,55 C 185,70 180,95 165,105 C 175,125 160,150 140,150 C 125,160 100,160 85,150 C 65,155 45,140 50,120 Z" stroke-width="3.5" />
+                        <path d="M 60,70 Q 90,120 120,60 T 150,110 T 80,130 T 130,80 T 70,100 T 140,120 T 90,70" stroke-width="2.5" />
+                        <path d="M 100,152 L 100,190" stroke-width="4" />
+                    </svg>
+                </div>
+
+                <h1 lang="bn" class="text-2xl sm:text-4xl md:text-5xl font-extrabold leading-tight text-black max-w-4xl px-4">
+                    ডিস্ট্র্যাকশনের সাথে ব্রেকআপ করুন !<br>
+                    অ্যাপ-ওয়েবসাইট ব্লক করুন<br>
+                   </h1>
+            </div>
+
+            <div class="pb-4">
+                <button onclick="navigateTo('screen-2')" class="nav-btn nav-btn-lg next nudge" aria-label="Next">
+                    <span class="nav-label">Next</span>
+                    <span class="nav-ico"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+                </button>
+            </div>
+        </section>
+
+        <!-- Screen 2 -->
+        <section id="screen-2" tabindex="-1" class="screen py-4 px-2 sm:px-6">
+            <div class="w-full flex items-center justify-between mb-6 gap-3">
+                <button onclick="navigateTo('screen-1')" class="nav-btn back" aria-label="Back">
+                    <span class="nav-ico"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></span>
+                    <span class="nav-label">Back</span>
+                </button>
+                <div id="dynamic-tagline" lang="bn" aria-live="off" class="text-base sm:text-2xl font-extrabold text-black text-right pr-2 transition-opacity duration-300">
+                    পড়তে হবেএএএএ, নকল আর হবে না
+                </div>
+            </div>
+
+            <div class="flex-1 grid grid-cols-2 gap-5 sm:gap-10 md:gap-16 items-start my-auto relative py-6">
+                <div class="flex absolute left-1/2 top-0 bottom-0 transform -translate-x-1/2 justify-center pointer-events-none" aria-hidden="true">
+                    <svg viewBox="0 0 30 500" class="h-full w-3 sm:w-8 wavy" preserveAspectRatio="none">
+                        <path d="M 15 0 Q 28 40 15 80 T 15 160 T 15 240 T 15 320 T 15 400 T 15 500" stroke-width="5" stroke-linecap="round"/>
+                    </svg>
+                </div>
+
+                <div class="min-w-0 pr-1 sm:pr-5 md:pr-10">
+                    <h2 class="text-2xl sm:text-4xl font-extrabold text-black mb-3 sm:mb-5 text-left">Apps</h2>
+                    <ul id="apps-list" class="space-y-3 list-scroll"></ul>
+                    <div class="mt-4">
+                        <label for="new-app-name" class="block text-black font-extrabold text-base mb-2">Add more apps</label>
+                        <div id="app-suggest" class="flex flex-wrap gap-2 mb-3" aria-label="Common apps"></div>
+                        <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+                            <input id="new-app-name" type="text" maxlength="24" autocomplete="off" placeholder="App name"
+                                   class="min-w-0 flex-1 py-2.5 px-4 text-base font-bold text-black bg-white border-2 border-black/20 rounded-2xl focus:outline-none focus:ring-4 focus:ring-black/20 transition shadow-inner">
+                            <button id="add-app-btn" type="button" class="nav-btn next sm:flex-shrink-0">
+                                <span class="nav-label">Add</span>
+                                <span class="nav-ico"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span>
+                            </button>
+                        </div>
+                        <p id="app-error" class="hidden mt-2 text-amber-200 font-bold text-sm" role="alert"></p>
+                    </div>
+                </div>
+
+                <div class="min-w-0 pl-1 sm:pl-5 md:pl-10">
+                    <h2 class="text-2xl sm:text-4xl font-extrabold text-black mb-2 sm:mb-5 text-left">Browser</h2>
+                    <p class="text-xs sm:text-sm font-bold text-black/70 mb-3 text-left">Websites: <span id="site-count">5 / 25</span></p>
+                    <ul id="sites-list" class="space-y-3 list-scroll"></ul>
+                    <button id="add-site-btn" type="button" class="nav-btn next mt-4 max-w-full">
+                        <span class="nav-label">Add website</span>
+                        <span class="nav-ico"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span>
+                    </button>
+                    <p id="site-limit-hint" class="hidden mt-2 text-sm font-bold text-black/80">You've reached the limit of 25 websites.</p>
+                </div>
+            </div>
+            <div></div>
+        </section>
+
+        <!-- Config screen -->
+        <section id="screen-config" tabindex="-1" class="screen py-4 px-2 sm:px-6">
+            <div>
+                <div class="flex items-center gap-4 sm:gap-6 mb-6">
+                    <button onclick="leaveConfig()" class="nav-btn back" aria-label="Back">
+                    <span class="nav-ico"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></span>
+                    <span class="nav-label">Back</span>
+                </button>
+                    <h2 id="config-title" class="min-w-0 break-words text-2xl sm:text-4xl font-extrabold text-black"></h2>
+                </div>
+
+                <div id="website-url-input-container" class="hidden mb-6 max-w-xl ml-2 sm:ml-12">
+                    <p class="block text-black font-extrabold text-lg mb-2" id="site-pick-label">Pick a website:</p>
+                    <div id="site-chips" role="group" aria-labelledby="site-pick-label" class="flex flex-wrap gap-2 mb-4"></div>
+                    <label for="custom-website-url" class="block text-black font-extrabold text-lg mb-2">Or paste a link:</label>
+                    <div class="relative flex items-center">
+                        <input id="custom-website-url" type="text" inputmode="url" autocomplete="off" placeholder="youtube.com  /  https://example.com"
+                               class="w-full py-3 px-4 pl-12 text-base sm:text-lg font-bold text-black bg-white border-2 border-black/20 rounded-2xl focus:outline-none focus:ring-4 focus:ring-black/20 transition shadow-inner">
+                        <svg class="ico absolute left-4 text-gray-500 text-xl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>
+                    </div>
+                    <p id="url-status" class="mt-2 text-sm sm:text-base font-bold text-black min-h-[1.5rem]" aria-live="polite"></p>
+                </div>
+
+                <div id="scope-container" role="group" aria-label="What to block" class="space-y-2 ml-0 sm:ml-12 max-w-xl"></div>
+
+                <!-- Custom section rules (websites only) -->
+                <div id="custom-rule-box" class="hidden ml-0 sm:ml-12 max-w-xl mt-6">
+                    <label for="custom-rule-input" class="block text-black font-extrabold text-lg mb-2">Block a specific section</label>
+                    <div class="flex items-center gap-3">
+                        <input id="custom-rule-input" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="/reels   or   /shorts"
+                               class="min-w-0 flex-1 py-3 px-4 text-base sm:text-lg font-bold text-black bg-white border-2 border-black/20 rounded-2xl focus:outline-none focus:ring-4 focus:ring-black/20 transition shadow-inner">
+                        <button id="custom-rule-add" type="button" class="nav-btn next flex-shrink-0">
+                            <span class="nav-label">Add</span>
+                            <span class="nav-ico"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span>
+                        </button>
+                    </div>
+                    <div id="rule-suggest" class="flex flex-wrap gap-2 mt-3" aria-label="Suggested sections"></div>
+                    <p id="rule-error" class="hidden mt-2 text-amber-200 font-bold text-sm sm:text-base" role="alert"></p>
+                    <p class="mt-2 text-sm text-black/80 font-semibold leading-snug">
+                        Type the part of the link after the site name, like <b>/shorts</b>. It blocks that section and everything inside it. A single <b>/</b> means the home page only.
+                    </p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-10 items-start my-auto py-6">
+                <div>
+                    <h3 class="text-2xl sm:text-3xl font-extrabold text-black mb-3">Time</h3>
+                    <div id="preset-list" role="radiogroup" aria-label="Choose a time" class="space-y-2 max-w-sm"></div>
+                </div>
+
+                <div class="flex flex-col items-center justify-center space-y-4">
+                    <h3 class="text-2xl sm:text-3xl font-extrabold text-black w-full text-center">Customize Time</h3>
+
+                    <div class="bg-white rounded-3xl p-4 sm:p-6 w-full max-w-sm flex items-center justify-center shadow-lg border-2 border-black/10">
+                        <div class="flex flex-wrap items-center justify-center gap-x-2 gap-y-3 sm:gap-3">
+                            <label class="flex items-center gap-2">
+                                <input id="input-hours" type="text" lang="en" inputmode="numeric" maxlength="2" autocomplete="off" value="00"
+                                       oninput="onTimeInput(this)" onblur="onTimeBlur()"
+                                       class="w-14 sm:w-16 text-center text-2xl sm:text-3xl font-extrabold text-black bg-gray-100 rounded-2xl py-2 focus:outline-none focus:ring-2 focus:ring-black">
+                                <span class="text-lg sm:text-2xl font-extrabold text-black">Hour</span>
+                            </label>
+                            <label class="flex items-center gap-2">
+                                <input id="input-minutes" type="text" lang="en" inputmode="numeric" maxlength="2" autocomplete="off" value="15"
+                                       oninput="onTimeInput(this)" onblur="onTimeBlur()"
+                                       class="w-14 sm:w-16 text-center text-2xl sm:text-3xl font-extrabold text-black bg-gray-100 rounded-2xl py-2 focus:outline-none focus:ring-2 focus:ring-black">
+                                <span class="text-lg sm:text-2xl font-extrabold text-black">Minute</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <p id="time-hint" class="hidden text-amber-200 font-bold text-base text-center">Please set at least 1 minute.</p>
+                    <p id="strengthen-hint" class="hidden text-amber-200 font-bold text-sm text-center max-w-sm">Already-locked items stay locked. You can only add more items or make the timer longer (counted from now).</p>
+
+                    <button id="start-btn" onclick="startBlockingTimer()"
+                            class="nav-btn next nav-btn-lg w-full max-w-sm mt-2">
+                        Start Blocking
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Active screen -->
+        <section id="screen-active" tabindex="-1" class="screen py-4 sm:py-8 px-0 sm:px-4 max-w-2xl mx-auto text-center justify-center items-center">
+            <div class="glass-card rounded-3xl p-4 sm:p-10 w-full flex flex-col items-center justify-center space-y-6 text-white pulse-glow">
+
+                <div class="space-y-2">
+                    <h2 id="active-header-title" class="text-2xl sm:text-4xl font-black tracking-tight text-white drop-shadow-md">App Blocked!</h2>
+                    <p id="active-app-name" class="text-sm sm:text-base text-emerald-200/90 font-semibold max-w-md mx-auto leading-relaxed"></p>
+                </div>
+
+                <div class="my-2 flex flex-col items-center w-full">
+                    <div class="notebook-container">
+                        <div class="notebook">
+                            <div class="notebook-spirals" aria-hidden="true">
+                                <div class="spiral-ring"></div><div class="spiral-ring"></div>
+                                <div class="spiral-ring"></div><div class="spiral-ring"></div>
+                                <div class="spiral-ring"></div><div class="spiral-ring"></div>
+                                <div class="spiral-ring"></div><div class="spiral-ring"></div>
+                            </div>
+
+                            <div class="notebook-paper py-4 px-1">
+                                <div class="inline-flex items-center gap-2 text-xs font-black uppercase tracking-widest text-emerald-900 bg-emerald-100/90 px-4 py-1.5 rounded-full mb-4 border border-emerald-300/80 shadow-sm">
+                                    <svg class="ico text-emerald-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 5h7a3 3 0 0 1 3 3v12a2 2 0 0 0-2-2H2zM22 5h-7a3 3 0 0 0-3 3v12a2 2 0 0 1 2-2h8z"/></svg> Timer
+                                </div>
+
+                                <div role="timer" aria-live="off" class="flex items-center justify-center gap-1.5 sm:gap-4 text-gray-900 font-mono font-black text-2xl min-[400px]:text-3xl sm:text-5xl tracking-tight">
+                                    <div class="flex flex-col items-center">
+                                        <span id="note-hours" class="bg-white border-2 border-slate-300/80 rounded-xl px-2 sm:px-4 py-2 shadow-inner text-slate-800">00</span>
+                                        <span class="text-[11px] text-slate-500 tracking-widest font-black mt-2 uppercase">Hours</span>
+                                    </div>
+                                    <span class="text-emerald-600 self-start mt-2 sm:mt-3 font-bold">:</span>
+                                    <div class="flex flex-col items-center">
+                                        <span id="note-minutes" class="bg-white border-2 border-slate-300/80 rounded-xl px-2 sm:px-4 py-2 shadow-inner text-slate-800">00</span>
+                                        <span class="text-[11px] text-slate-500 tracking-widest font-black mt-2 uppercase">Minutes</span>
+                                    </div>
+                                    <span class="text-emerald-600 self-start mt-2 sm:mt-3 font-bold">:</span>
+                                    <div class="flex flex-col items-center">
+                                        <span id="note-seconds" class="bg-gradient-to-b from-emerald-500 to-emerald-700 text-white rounded-xl px-2 sm:px-4 py-2 shadow-lg border-2 border-emerald-800">00</span>
+                                        <span class="text-[11px] text-emerald-700 tracking-widest font-black mt-2 uppercase">Seconds</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="w-full max-w-sm rounded-2xl bg-white/10 border border-white/15 px-4 py-3 flex items-center justify-center gap-3 text-sm sm:text-base font-bold text-emerald-100">
+                    <svg class="ico text-emerald-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+                    <span>Locked until <span id="lock-until" class="text-white"></span></span>
+                </div>
+                <p class="text-xs sm:text-sm text-emerald-200/70 -mt-3">This block can't be stopped or removed until the timer ends. Go back to block more apps or websites.</p>
+                <div class="flex flex-wrap items-center justify-center gap-3 mt-1">
+                    <button type="button" onclick="navigateTo('screen-2')" class="nav-btn back" aria-label="Back to selection">
+                        <span class="nav-ico"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></span>
+                        <span class="nav-label">Back</span>
+                    </button>
+                    <button type="button" onclick="strengthenCurrent()" class="nav-btn next" aria-label="Add more to this block or extend the timer">
+                        <span class="nav-label">Add more / Extend</span>
+                        <span class="nav-ico"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        /* ---------- Data ---------- */
+        const ALL_LABEL = "ALL ( You Can't Enter)";
+        const MAX_MINUTES = 24 * 60;
+
+        const CATALOG = [
+            'Youtube', 'Facebook', 'Instagram', 'TikTok', 'WhatsApp', 'Messenger', 'Telegram', 'Snapchat',
+            'X', 'Reddit', 'Netflix', 'Spotify', 'Discord', 'Pinterest', 'Twitch', 'Steam'
+        ].map(name => ({ key: name, label: name === 'X' ? 'X (Twitter)' : name, kind: 'app' }));
+        const DEFAULT_COUNT = 5;      
+        const APPS = CATALOG.slice(0, DEFAULT_COUNT).map(a => ({ ...a }));
+        const MAX_SITES = 25;         
+        const MAX_CUSTOM_APPS = 25;    
+        const SITES = Array.from({ length: DEFAULT_COUNT }, (_, i) => i + 1).map(n => ({ key: 'site-' + n, label: 'Website ' + n, kind: 'website' }));
+        const TARGETS = {};
+        [...APPS, ...SITES].forEach(t => { TARGETS[t.key] = t; });
+        let customAppSeq = 0;
+        let siteSeq = SITES.length;
+
+        function addSiteSlot(key) {
+            if (SITES.length >= MAX_SITES) return null;
+            key = key || ('site-' + (siteSeq + 1));
+            if (TARGETS[key]) return TARGETS[key];
+            const m = /^site-(\d+)$/.exec(key);
+            if (!m) return null;
+            siteSeq = Math.max(siteSeq, +m[1]);
+            const t = { key, label: 'Website ' + m[1], kind: 'website' };
+            SITES.push(t);
+            TARGETS[key] = t;
+            return t;
+        }
+        function addAppTarget(key, label, custom = true) {
+            const t = { key, label, kind: 'app' };
+            if (custom) t.custom = true;
+            APPS.push(t);
+            TARGETS[key] = t;
+            const m = /^app-c(\d+)$/.exec(key);
+            if (m) customAppSeq = Math.max(customAppSeq, +m[1]);
+            return t;
+        }
+
+
+        function canRemoveTarget(key) {
+            const t = TARGETS[key];
+            if (!t) return false;
+            const list = t.kind === 'website' ? SITES : APPS;
+            return list.length > 1 && !getLockByKey(key);
+        }
+        function removeTarget(key) {
+            if (!canRemoveTarget(key)) return false;
+            const list = TARGETS[key].kind === 'website' ? SITES : APPS;
+            list.splice(list.findIndex(x => x.key === key), 1);
+            delete TARGETS[key];
+            delete scopeStore[key];
+            delete urlStore[key];
+            delete scopeStash[key];
+            saveLayout();
+            saveConfig();
+            return true;
+        }
+
+
+        const LAYOUT_KEY = 'focusBlocker.layout.v3';
+        const MID_LAYOUT_KEY = 'focusBlocker.layout.v2';
+        const OLD_LAYOUT_KEY = 'focusBlocker.layout.v1';
+        function saveLayout() {
+            try {
+                localStorage.setItem(LAYOUT_KEY, JSON.stringify({
+                    sites: SITES.map(x => x.key),
+                    siteSeq,
+                    apps: APPS.map(a => ({ key: a.key, label: a.label }))
+                }));
+            } catch (e) { /* storage blocked */ }
+        }
+        function loadLayout() {
+            try {
+                let d = JSON.parse(localStorage.getItem(LAYOUT_KEY) || 'null');
+                let padToDefault = false;      // purono layout theke ashle default 5 + 5 ferot ana hobe (ekbar)
+                if (!d) {
+                    d = JSON.parse(localStorage.getItem(MID_LAYOUT_KEY) || 'null');
+                    if (d) padToDefault = true;
+                }
+                if (!d) {   // v1 theke migrate: sites = count, apps = shudhu custom gulo
+                    padToDefault = true;
+                    const o = JSON.parse(localStorage.getItem(OLD_LAYOUT_KEY) || 'null');
+                    if (!o) return;
+                    const n = Math.min(Math.max(+o.sites || DEFAULT_COUNT, 1), MAX_SITES);
+                    d = {
+                        sites: Array.from({ length: n }, (_, i) => 'site-' + (i + 1)),
+                        siteSeq: n,
+                        apps: CATALOG.slice(0, DEFAULT_COUNT).map(a => ({ key: a.key, label: a.label })).concat(Array.isArray(o.apps) ? o.apps : [])
+                    };
+                }
+                const catalogByKey = Object.fromEntries(CATALOG.map(a => [a.key, a]));
+
+                if (Array.isArray(d.apps)) {
+                    const seen = new Set();
+                    const apps = [];
+                    d.apps.forEach(a => {
+                        if (!a || typeof a.key !== 'string' || seen.has(a.key)) return;
+                        if (catalogByKey[a.key]) { seen.add(a.key); apps.push({ ...catalogByKey[a.key] }); }
+                        else if (/^app-c\d+$/.test(a.key) && typeof a.label === 'string' && a.label.trim()
+                                 && apps.filter(x => x.custom).length < MAX_CUSTOM_APPS) {
+                            seen.add(a.key);
+                            apps.push({ key: a.key, label: a.label.trim().slice(0, 24), kind: 'app', custom: true });
+                        }
+                    });
+                    if (padToDefault) {
+                        CATALOG.slice(0, DEFAULT_COUNT).forEach(c => {
+                            if (apps.length < DEFAULT_COUNT && !seen.has(c.key)) { seen.add(c.key); apps.push({ ...c }); }
+                        });
+                    }
+                    if (apps.length) {
+                        APPS.forEach(a => { delete TARGETS[a.key]; });
+                        APPS.splice(0, APPS.length, ...apps);
+                        APPS.forEach(a => {
+                            TARGETS[a.key] = a;
+                            const m = /^app-c(\d+)$/.exec(a.key);
+                            if (m) customAppSeq = Math.max(customAppSeq, +m[1]);
+                        });
+                    }
+                }
+
+                if (Array.isArray(d.sites)) {
+                    const keys = [...new Set(d.sites.filter(k => typeof k === 'string' && /^site-\d+$/.test(k)))].slice(0, MAX_SITES);
+                    if (padToDefault) {
+                        for (let n = 1; keys.length < DEFAULT_COUNT; n++) { const k = 'site-' + n; if (!keys.includes(k)) keys.push(k); }
+                    }
+                    if (keys.length) {
+                        SITES.forEach(x => { delete TARGETS[x.key]; });
+                        SITES.length = 0;
+                        keys.forEach(k => addSiteSlot(k));
+                        siteSeq = Math.max(siteSeq, Number.isInteger(d.siteSeq) ? d.siteSeq : 0);
+                    }
+                }
+                if (padToDefault) saveLayout();     // v3 e likhe rakhi
+            } catch (e) { /* ignore */ }
+        }
+
+
+        const CONFIG_KEY = 'focusBlocker.config.v1';
+        function saveConfig() {
+            try {
+                const scopes = {};
+                Object.keys(scopeStore).forEach(k => {
+                    if (!TARGETS[k] || !Array.isArray(scopeStore[k])) return;
+                    scopes[k] = scopeStore[k].map(i => ({
+                        id: i.id, label: i.label, state: !!i.state,
+                        paths: i.paths || null, hosts: i.hosts || null, custom: !!i.custom
+                    }));
+                });
+                const urls = {};
+                Object.keys(urlStore).forEach(k => { if (TARGETS[k] && urlStore[k]) urls[k] = urlStore[k]; });
+                localStorage.setItem(CONFIG_KEY, JSON.stringify({ urls, scopes }));
+            } catch (e) { /* storage blocked */ }
+        }
+        function loadConfig() {
+            try {
+                const d = JSON.parse(localStorage.getItem(CONFIG_KEY) || 'null');
+                if (!d || typeof d !== 'object') return;
+                Object.keys(d.urls || {}).forEach(k => {
+                    if (TARGETS[k] && TARGETS[k].kind === 'website' && typeof d.urls[k] === 'string') urlStore[k] = d.urls[k].slice(0, 300);
+                });
+                const strs = (a) => Array.isArray(a) ? a.filter(x => typeof x === 'string').slice(0, 6) : null;
+                Object.keys(d.scopes || {}).forEach(k => {
+                    const t = TARGETS[k], arr = d.scopes[k];
+                    if (!t || !Array.isArray(arr) || !arr.length || !arr[0] || arr[0].id !== 'all') return;
+                    const list = [];
+                    let customs = 0;
+                    arr.slice(0, 40).forEach((i, idx) => {
+                        if (!i || typeof i.id !== 'string' || typeof i.label !== 'string') return;
+                        const item = { id: i.id.slice(0, 80), label: i.label.slice(0, 60), state: !!i.state };
+                        if (idx === 0) { item.id = 'all'; list.push(item); return; }
+                        const paths = strs(i.paths), hosts = strs(i.hosts);
+                        if (paths && paths.length) item.paths = paths;
+                        if (hosts && hosts.length) item.hosts = hosts;
+                        if (i.custom) {
+                            if (t.kind !== 'website' || customs >= MAX_CUSTOM_RULES || !item.paths || normalizePath(item.paths[0]) !== item.paths[0]) return;
+                            item.custom = true;
+                            customs++;
+                        }
+                        list.push(item);
+                    });
+                    if (t.kind === 'app' && SUB_SCOPES[k]) {      // notun sub-section (jemon Live) purono save e thakle jog kori
+                        const byId = new Map(list.map(i => [i.id, i]));
+                        const merged = [list[0]].concat(SUB_SCOPES[k].map(([id, label]) =>
+                            byId.get(id) || { id, label, state: list[0].state }));
+                        list.splice(0, list.length, ...merged);
+                    }
+                    if (list.length) scopeStore[k] = list;
+                });
+            } catch (e) { /* ignore */ }
+        }
+
+
+
+        const SITE_PRESETS = {
+            youtube: { name: 'YouTube', domains: ['youtube.com', 'youtu.be'], sections: [
+                { id: 'shorts', label: 'Youtube Shorts',    paths: ['/shorts', '*/shorts'] },
+                { id: 'videos', label: 'Youtube Videos',    paths: ['/watch', '/embed'], hosts: ['youtu.be'] },
+                { id: 'live',   label: 'Youtube Live',      paths: ['/live'] },
+                { id: 'home',   label: 'Youtube Home feed', paths: ['/'] }
+            ]},
+            facebook: { name: 'Facebook', domains: ['facebook.com', 'fb.com', 'fb.watch'], sections: [
+                { id: 'reels',       label: 'Facebook Reels',       paths: ['/reel', '/reels', '/share/r', '*/reel'] },
+                { id: 'videos',      label: 'Facebook Videos',      paths: ['/watch', '/videos', '*/videos', '/share/v'], hosts: ['fb.watch'] },
+                { id: 'stories',     label: 'Facebook Stories',     paths: ['/stories'] },
+                { id: 'marketplace', label: 'Facebook Marketplace', paths: ['/marketplace'] },
+                { id: 'home',        label: 'Facebook Home feed',   paths: ['/'] }
+            ]},
+            instagram: { name: 'Instagram', domains: ['instagram.com', 'instagr.am'], sections: [
+                { id: 'reels',   label: 'Instagram Reels',     paths: ['/reels', '/reel', '*/reel', '*/reels'] },
+                { id: 'explore', label: 'Instagram Explore',   paths: ['/explore'] },
+                { id: 'stories', label: 'Instagram Stories',   paths: ['/stories'] },
+                { id: 'home',    label: 'Instagram Home feed', paths: ['/'] }
+            ]},
+            tiktok: { name: 'TikTok', domains: ['tiktok.com'], sections: [
+                { id: 'explore', label: 'TikTok Explore',  paths: ['/explore'] },
+                { id: 'live',    label: 'TikTok Live',     paths: ['/live'] },
+                { id: 'home',    label: 'TikTok For You',  paths: ['/'] }
+            ]},
+            x: { name: 'X (Twitter)', domains: ['x.com', 'twitter.com'], sections: [
+                { id: 'explore',  label: 'X Explore',  paths: ['/explore'] },
+                { id: 'home',     label: 'X Home feed', paths: ['/home'] }
+            ]},
+            reddit: { name: 'Reddit', domains: ['reddit.com', 'redd.it'], sections: [
+                { id: 'popular', label: 'Reddit Popular', paths: ['/r/popular', '/r/all'] },
+                { id: 'home',    label: 'Reddit Home feed', paths: ['/'] }
+            ]}
+        };
+        const RULE_SUGGESTIONS = ['/reels', '/shorts', '/video', '/watch', '/explore', '/stories'];
+        const MAX_CUSTOM_RULES = 8;
+
+        const SUB_SCOPES = {
+            'Youtube':   [['shorts', 'Youtube Shorts'], ['videos', 'Youtube Videos'], ['live', 'Youtube Live']],
+            'Facebook':  [['fb_reels', 'Facebook Reels'], ['fb_video', 'Facebook Video'], ['fb_post', 'Facebook Post']],
+            'Instagram': [['ig_reels', 'Instagram Reels'], ['ig_post', 'Instagram Post']]
+        };
+
+        const PRESETS = [[5, '5 Minute'], [10, '10 Minute'], [15, '15 Minute'], [30, '30 Minute'], [60, '1 Hour']];
+
+        const TAGLINES = [
+            'পড়তে হবেএএএএ, নকল আর হবে না',
+            'এইবার Comeback হবেই হবে'
+        ];
+
+        /* ---------- State ---------- */
+        let currentTarget = 'Youtube';
+        let selectedMinutes = 15;
+        let countdownInterval = null;
+        let taglineInterval = null;
+        let currentTaglineIndex = 0;
+        let stopArmed = false;
+        let stopArmTimeout = null;
+
+        const scopeStore = {};   
+        const urlStore = {};     
+        const scopeStash = {};   
+        const autoDone = {};    
+        let pendingNewKey = null;   
+        let strengthenId = null;    
+
+        function getScopes(key) {
+            if (!scopeStore[key]) {
+                scopeStore[key] = [{ id: 'all', label: ALL_LABEL, state: false }]
+                    .concat((SUB_SCOPES[key] || []).map(([id, label]) => ({ id, label, state: false })));
+            }
+            return scopeStore[key];
+        }
+
+
+
+        function syncAll(list) {
+            const subs = list.slice(1);
+            if (subs.some(i => !i.state)) { list[0].state = false; return; }
+            if (subs.filter(i => !i.custom).length >= 2) list[0].state = true;
+        }
+
+        const $ = (id) => document.getElementById(id);
+        const esc = (str) => String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+        // "youtube.com", "www.youtube.com/watch?v=1", "https://m.youtube.com" -> { host, presetId }
+        function parseSite(raw) {
+            const v = (raw || '').trim();
+            if (!v || /\s/.test(v)) return null;
+            let u;
+            try { u = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(v) ? v : 'https://' + v); } catch (e) { return null; }
+            if (!/^https?:$/.test(u.protocol)) return null;
+            const host = u.hostname.toLowerCase().replace(/^www\./, '');
+            if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(host)) return null;
+            for (const id of Object.keys(SITE_PRESETS)) {
+                const dom = SITE_PRESETS[id].domains.find(d => host === d || host.endsWith('.' + d));
+                if (dom) return { host: dom, presetId: id };
+            }
+            return { host, presetId: null };
+        }
+
+
+        function displayName(key) {
+            const t = TARGETS[key];
+            if (t.kind === 'website') {
+                const site = parseSite(urlStore[key]);
+                return site ? site.host : 'Website ' + (SITES.findIndex(x => x.key === key) + 1);
+            }
+            return t.label;
+        }
+
+        // Website er scope list: ALL + (known site er section) + user er custom section
+
+        function rebuildSiteScopes(key) {
+            const old = getScopes(key);
+            const prev = new Map(old.map(i => [i.id, i]));
+            const stash = scopeStash[key] || (scopeStash[key] = {});
+            old.forEach(i => { if (i.id.startsWith('p:')) stash[i.id] = i.state; });
+            const site = parseSite(urlStore[key]);
+            const presets = site && site.presetId ? SITE_PRESETS[site.presetId].sections : [];
+            const all = old[0];
+
+            const list = [all];
+            presets.forEach(p => {
+                const id = `p:${site.presetId}:${p.id}`;
+                const was = prev.has(id) ? prev.get(id).state : !!stash[id];
+                const item = { id, label: p.label, paths: p.paths, state: all.state || was };
+                if (p.hosts) item.hosts = p.hosts;
+                list.push(item);
+            });
+            old.filter(i => i.custom).forEach(i => list.push(i));
+            syncAll(list);
+            scopeStore[key] = list;
+        }
+
+        // "/reels", "reels", "youtube.com/shorts", "https://x.com/explore" -> "/reels" ...
+        function normalizePath(raw) {
+            let v = (raw || '').trim();
+            if (!v) return null;
+            if (/^https?:\/\//i.test(v)) {
+                try { v = new URL(v).pathname; } catch (e) { return null; }
+            } else if (/^[^/\s]+\.[^/\s]+\//.test(v)) {
+                v = v.slice(v.indexOf('/'));
+            }
+            if (!v.startsWith('/')) v = '/' + v;
+            v = v.replace(/\/{2,}/g, '/');
+            if (v.length > 1) v = v.replace(/\/$/, '');
+            if (!/^\/[A-Za-z0-9_\-./~%@]*$/.test(v) || v.length > 60) return null;
+            return v;
+        }
+
+
+        function buildRule(key) {
+            const t = TARGETS[key];
+            const list = getScopes(key);
+            const rule = {
+                kind: t.kind,
+                target: displayName(key),
+                all: !!list[0].state,
+                sections: list.slice(1).filter(i => i.state).map(i => ({ label: i.label, paths: i.paths || null, hosts: i.hosts || null }))
+            };
+            if (t.kind === 'website') {
+                const site = parseSite(urlStore[key]);
+                rule.host = site ? site.host : null;
+                rule.domains = site ? (site.presetId ? SITE_PRESETS[site.presetId].domains.slice() : [site.host]) : [];
+            }
+            return rule;
+        }
+        const markHTML = (on) => `<span class="mark ${on ? 'mark-on' : 'mark-off'}" aria-hidden="true">${on ? '✓' : '✗'}</span>`;
+
+        /* ---------- Navigation ---------- */
+        function navigateTo(screenId) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            const target = $(screenId);
+            if (target) {
+                target.classList.add('active');
+                window.scrollTo(0, 0);
+                target.focus({ preventScroll: true });
+            }
+
+            if (screenId === 'screen-2') {
+                renderTargets();
+                if (!taglineInterval) taglineInterval = setInterval(updateTagline, 3000);
+            } else if (taglineInterval) {
+                clearInterval(taglineInterval);
+                taglineInterval = null;
+            }
+        }
+
+        function updateTagline() {
+            const el = $('dynamic-tagline');
+            if (!el) return;
+            el.style.opacity = '0';
+            setTimeout(() => {
+                currentTaglineIndex = (currentTaglineIndex + 1) % TAGLINES.length;
+                el.textContent = TAGLINES[currentTaglineIndex];
+                el.style.opacity = '1';
+            }, 300);
+        }
+
+        /* ---------- Add apps / websites (screen 2) ---------- */
+        function showAppError(msg) {
+            const el = $('app-error');
+            el.textContent = msg;
+            el.classList.toggle('hidden', !msg);
+        }
+        function addCustomApp() {
+            const input = $('new-app-name');
+            const name = input.value.trim().replace(/\s+/g, ' ');
+            if (!name) { showAppError('Type an app name first'); return; }
+            if (name.length > 24) { showAppError('Use 24 characters or fewer'); return; }
+            const lower = name.toLowerCase();
+            if (APPS.some(a => a.label.toLowerCase() === lower)) { showAppError('That app is already in the list'); return; }
+            const cat = CATALOG.find(c => c.label.toLowerCase() === lower || c.key.toLowerCase() === lower || (c.key === 'X' && lower === 'twitter'));
+            if (cat && TARGETS[cat.key]) { showAppError('That app is already in the list'); return; }
+            let t;
+            if (cat) {
+                t = addAppTarget(cat.key, cat.label, false);
+            } else {
+                if (APPS.filter(a => a.custom).length >= MAX_CUSTOM_APPS) { showAppError(`You can add up to ${MAX_CUSTOM_APPS} custom apps`); return; }
+                t = addAppTarget('app-c' + (customAppSeq + 1), name);
+            }
+            input.value = '';
+            showAppError('');
+            saveLayout();
+            renderTargets();
+            openConfig(t.key);
+        }
+        function addWebsite() {
+            const t = addSiteSlot();
+            if (!t) return;
+            saveLayout();
+            renderTargets();
+            openConfig(t.key);
+            pendingNewKey = t.key;
+        }
+        $('add-app-btn').addEventListener('click', addCustomApp);
+        $('new-app-name').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addCustomApp(); } });
+        $('new-app-name').addEventListener('input', () => showAppError(''));
+        $('add-site-btn').addEventListener('click', addWebsite);
+
+        /* ---------- Target lists (screen 2) ---------- */
+        function renderTargets() {
+            const build = (list) => list.map(t => {
+                const lock = getLockByKey(t.key);
+                const locked = !!lock;
+                const label = esc(lock ? (lock.name || t.label) : displayName(t.key));
+                const canRemove = canRemoveTarget(t.key);
+                const removeTip = locked ? 'Locked until the timer ends' : (list.length <= 1 ? 'At least one must stay' : 'Remove');
+                return `
+                <li class="flex items-center gap-1.5 sm:gap-2">
+                    <button type="button" class="row-btn group px-1.5 sm:px-3 py-2 flex-1 min-w-0" data-key="${t.key}" ${locked ? 'data-locked="true"' : ''} aria-label="${label}${locked ? ' (locked)' : ''}">
+                        <span class="text-[0.85rem] min-[400px]:text-base sm:text-2xl font-extrabold text-black flex items-center gap-1.5 sm:gap-3 min-w-0">
+                            <span class="hidden sm:block w-3 h-3 bg-black rounded-full flex-shrink-0" aria-hidden="true"></span><span class="[overflow-wrap:anywhere] leading-tight">${label}</span>
+                        </span>
+                        <span class="flex items-center gap-2 flex-shrink-0">
+                            ${locked ? `<span class="lock-chip" data-chip="${t.key}"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg><span></span></span>` : ''}
+                            <span class="go-ico" aria-hidden="true"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+                        </span>
+                    </button>
+                    <button type="button" class="mini-btn" data-remove="${t.key}" ${canRemove ? '' : 'disabled'}
+                            aria-label="Remove ${label}" title="${esc(removeTip)}"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+                </li>`;
+            }).join('');
+
+            $('apps-list').innerHTML = build(APPS);
+            $('sites-list').innerHTML = build(SITES);
+            $('site-count').textContent = `${SITES.length} / ${MAX_SITES}`;
+
+            const suggest = $('app-suggest');
+            suggest.innerHTML = '';
+            CATALOG.filter(c => !TARGETS[c.key]).forEach(c => {
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.className = 'chip sub';
+                b.textContent = '+ ' + c.label;
+                b.addEventListener('click', () => {
+                    const t = addAppTarget(c.key, c.label, false);
+                    showAppError('');
+                    saveLayout();
+                    renderTargets();
+                    openConfig(t.key);
+                });
+                suggest.appendChild(b);
+            });
+            $('add-site-btn').disabled = SITES.length >= MAX_SITES;
+            $('site-limit-hint').classList.toggle('hidden', SITES.length < MAX_SITES);
+
+            document.querySelectorAll('[data-remove]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const key = btn.dataset.remove;
+                    const listId = TARGETS[key] && TARGETS[key].kind === 'website' ? 'sites-list' : 'apps-list';
+                    if (!removeTarget(key)) return;
+                    renderTargets();
+                    const next = $(listId).querySelector('[data-key]');
+                    if (next) next.focus({ preventScroll: true });
+                });
+            });
+
+            document.querySelectorAll('[data-key]').forEach(btn => {
+                btn.addEventListener('click', () => openConfig(btn.dataset.key));
+            });
+            updateBadges();
+        }
+
+        /* ---------- Config screen ---------- */
+        function openConfig(key, strengthen = false) {
+            const existing = getLockByKey(key);
+            if (existing && !strengthen) { viewLock(existing); return; }
+            if (strengthen && !existing) return;
+            pendingNewKey = null;
+            strengthenId = strengthen ? existing.id : null;
+            delete autoDone[key];
+            currentTarget = key;
+            const t = TARGETS[key];
+            const isSite = t.kind === 'website';
+
+            $('config-title').textContent = displayName(key) + (strengthen ? ' — add / extend' : '');
+            $('custom-website-url').disabled = strengthen;
+            $('start-btn').textContent = strengthen ? 'Add / Extend Block' : 'Start Blocking';
+            $('strengthen-hint').classList.toggle('hidden', !strengthen);
+            $('website-url-input-container').classList.toggle('hidden', !isSite);
+            $('custom-rule-box').classList.toggle('hidden', !isSite);
+            $('custom-website-url').value = urlStore[key] || '';
+            $('custom-rule-input').value = '';
+            clearRuleError();
+
+            if (isSite) { rebuildSiteScopes(key); updateUrlStatus(); renderSiteChips(); }
+
+            renderScopes();
+            selectPresetTime(selectedMinutes);
+            navigateTo('screen-config');
+        }
+
+        function lockBase(l) {
+            return new Set(Array.isArray(l.scopeIds) ? l.scopeIds : getScopes(l.key).filter(i => i.state).map(i => i.id));
+        }
+        function strengthenBase() {
+            const l = strengthenId && getLockById(strengthenId);
+            return l ? lockBase(l) : null;
+        }
+        function revertToLock(l) {
+            const base = lockBase(l);
+            scopeStore[l.key] = getScopes(l.key)
+                .filter(i => i.id === 'all' || !i.custom || base.has(i.id))
+                .map(i => { i.state = base.has(i.id); return i; });
+            saveConfig();
+        }
+        function strengthenCurrent() {
+            const l = getLockById(viewedLockId);
+            if (l) openConfig(l.key, true);
+        }
+        function leaveConfig() {
+            if (strengthenId) {
+                const l = getLockById(strengthenId);
+                strengthenId = null;
+                $('custom-website-url').disabled = false;
+                $('start-btn').textContent = 'Start Blocking';
+                $('strengthen-hint').classList.add('hidden');
+                if (l) { revertToLock(l); viewLock(l); return; }
+            }
+            const k = pendingNewKey;
+            pendingNewKey = null;
+            if (k && TARGETS[k] && TARGETS[k].kind === 'website' && !(urlStore[k] || '').trim()
+                && !getLockByKey(k) && !getScopes(k).some(i => i.state)) {
+                removeTarget(k);
+            }
+            navigateTo('screen-2');
+        }
+
+        function renderScopes() {
+            const base = strengthenBase();
+            const container = $('scope-container');
+            container.innerHTML = '';
+            getScopes(currentTarget).forEach((scope, index) => {
+                const wrap = document.createElement('div');
+                wrap.className = 'flex items-center gap-2';
+
+                const row = document.createElement('button');
+                row.type = 'button';
+                row.className = 'row-btn px-2 py-1.5 flex-1 min-w-0';
+                row.setAttribute('role', 'checkbox');
+                row.setAttribute('aria-checked', String(scope.state));
+                row.innerHTML = `
+                    <span class="text-lg sm:text-2xl font-extrabold text-black flex items-center gap-3 min-w-0"><span aria-hidden="true">•</span><span class="scope-label break-all"></span></span>
+                    ${markHTML(scope.state)}`;
+                row.querySelector('.scope-label').textContent = scope.label;
+                row.addEventListener('click', () => toggleScopeItem(index));
+                if (base && base.has(scope.id)) {
+                    row.setAttribute('aria-disabled', 'true');
+                    row.style.opacity = '0.7';
+                    row.title = 'Already locked';
+                }
+                wrap.appendChild(row);
+
+                if (scope.custom) {
+                    const del = document.createElement('button');
+                    del.type = 'button';
+                    del.className = 'mini-btn';
+                    del.disabled = !!(base && base.has(scope.id));
+                    del.setAttribute('aria-label', 'Remove ' + scope.label);
+                    del.innerHTML = '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+                    del.addEventListener('click', () => removeCustomRule(scope.id));
+                    wrap.appendChild(del);
+                }
+                container.appendChild(wrap);
+            });
+            if (TARGETS[currentTarget].kind === 'website') renderRuleSuggest();
+        }
+
+        function toggleScopeItem(index) {
+            const list = getScopes(currentTarget);
+            const item = list[index];
+            if (!item) return;
+            const base = strengthenBase();
+            if (base && base.has(item.id)) return;
+
+            if (item.id === 'all') {
+                const newState = !item.state;
+                list.forEach(i => { if (!(base && base.has(i.id))) i.state = newState; });
+            } else {
+                item.state = !item.state;
+                syncAll(list);
+            }
+
+            saveConfig();
+            renderScopes();
+            const rows = $('scope-container').querySelectorAll('[role="checkbox"]');
+            if (rows[index]) rows[index].focus({ preventScroll: true });
+        }
+
+        function updateUrlStatus() {
+            const el = $('url-status');
+            const raw = (urlStore[currentTarget] || '').trim();
+            el.classList.remove('text-amber-200');
+            el.classList.add('text-black');
+            if (!raw) { el.textContent = ''; return; }
+            const site = parseSite(raw);
+            if (!site) {
+                el.classList.remove('text-black');
+                el.classList.add('text-amber-200');
+                el.textContent = 'Enter a valid link, like youtube.com';
+            } else if (site.presetId) {
+                el.textContent = `✓ ${site.host} — pick a section below, or block the whole site`;
+            } else {
+                el.textContent = `✓ ${site.host} — block the whole site, or add a section below (like /reels)`;
+            }
+        }
+
+        function applyUrl(value) {
+            urlStore[currentTarget] = value.trim();
+            saveConfig();
+            rebuildSiteScopes(currentTarget);
+            renderScopes();
+            updateUrlStatus();
+            renderSiteChips();
+            $('config-title').textContent = displayName(currentTarget);
+        }
+        $('custom-website-url').addEventListener('input', (e) => { applyUrl(e.target.value); autoSelectFromLink(); });
+
+        function autoSelectFromLink() {
+            if (strengthenId) return;
+            const raw = ($('custom-website-url').value || '').trim();
+            const site = parseSite(raw);
+            if (!site || !site.presetId) return;
+            let path;
+            try { path = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(raw) ? raw : 'https://' + raw).pathname.toLowerCase(); }
+            catch (e) { return; }
+            const done = autoDone[currentTarget] || (autoDone[currentTarget] = new Set());
+            let hit = false;
+            getScopes(currentTarget).slice(1).forEach(i => {
+                if (done.has(i.id)) return;
+                const byHost = i.hosts && i.hosts.includes(site.host) && path !== '/';
+                const byPath = i.paths && i.paths.some(p => p !== '/' && pathMatches(path, p));
+                if (byHost || byPath) {
+                    done.add(i.id);
+                    if (!i.state) { i.state = true; hit = true; }
+                }
+            });
+            if (hit) { syncAll(getScopes(currentTarget)); saveConfig(); renderScopes(); }
+        }
+        $('custom-website-url').addEventListener('paste', () => {
+            setTimeout(() => { applyUrl($('custom-website-url').value); autoSelectFromLink(); }, 0);
+        });
+
+        function renderSiteChips() {
+            const box = $('site-chips');
+            const cur = parseSite(urlStore[currentTarget]);
+            box.innerHTML = '';
+            Object.keys(SITE_PRESETS).forEach(id => {
+                const on = !!(cur && cur.presetId === id);
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.className = 'chip' + (on ? ' on' : '');
+                b.setAttribute('aria-pressed', String(on));
+                b.disabled = !!strengthenId;
+                b.textContent = SITE_PRESETS[id].name;
+                b.addEventListener('click', () => pickSite(id));
+                box.appendChild(b);
+            });
+        }
+
+        function pickSite(id) {
+            if (strengthenId) return;
+            const cur = parseSite(urlStore[currentTarget]);
+            if (!(cur && cur.presetId === id)) {
+                scopeStore[currentTarget] = null;
+                delete scopeStash[currentTarget];
+                delete autoDone[currentTarget];
+            }
+            const host = SITE_PRESETS[id].domains[0];
+            $('custom-website-url').value = host;
+            $('custom-rule-input').value = '';
+            clearRuleError();
+            applyUrl(host);
+            const idx = Object.keys(SITE_PRESETS).indexOf(id);
+            const chip = $('site-chips').children[idx];
+            if (chip) chip.focus({ preventScroll: true });
+        }
+
+        function renderRuleSuggest() {
+            const box = $('rule-suggest');
+            if (!box) return;
+            const used = new Set();
+            getScopes(currentTarget).forEach(i => (i.paths || []).forEach(p => used.add(p.toLowerCase())));
+            box.innerHTML = '';
+            RULE_SUGGESTIONS.filter(p => !used.has(p)).forEach(p => {
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.className = 'chip sub';
+                b.textContent = '+ ' + p;
+                b.addEventListener('click', () => { $('custom-rule-input').value = p; addCustomRule(); });
+                box.appendChild(b);
+            });
+        }
+
+        function showRuleError(msg) {
+            const el = $('rule-error');
+            el.textContent = msg;
+            el.classList.remove('hidden');
+        }
+        function clearRuleError() {
+            const el = $('rule-error');
+            el.textContent = '';
+            el.classList.add('hidden');
+        }
+
+        function addCustomRule() {
+            const input = $('custom-rule-input');
+            const path = normalizePath(input.value);
+            if (!path) { showRuleError('Use a path like /reels or /shorts'); return; }
+
+            const list = getScopes(currentTarget);
+            if (list.filter(i => i.custom).length >= MAX_CUSTOM_RULES) {
+                showRuleError(`You can add up to ${MAX_CUSTOM_RULES} custom sections`);
+                return;
+            }
+            if (list.some(i => i.paths && i.paths.some(p => p.toLowerCase() === path.toLowerCase()))) {
+                showRuleError('That section is already in the list');
+                return;
+            }
+
+            list.push({ id: 'c:' + path.toLowerCase(), label: path, paths: [path], custom: true, state: true });
+            syncAll(list);
+
+            input.value = '';
+            clearRuleError();
+            saveConfig();
+            renderScopes();
+        }
+
+        function removeCustomRule(id) {
+            const list = getScopes(currentTarget);
+            const idx = list.findIndex(i => i.id === id);
+            if (idx < 1) return;
+            const base = strengthenBase();
+            if (base && base.has(id)) return;
+            list.splice(idx, 1);
+            syncAll(list);
+            saveConfig();
+            renderScopes();
+        }
+
+        $('custom-rule-add').addEventListener('click', addCustomRule);
+        $('custom-rule-input').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); addCustomRule(); }
+        });
+        $('custom-rule-input').addEventListener('input', clearRuleError);
+
+        /* ---------- Time selection ---------- */
+        function renderPresets() {
+            const list = $('preset-list');
+            list.innerHTML = '';
+            PRESETS.forEach(([mins, label]) => {
+                const on = mins === selectedMinutes;
+                const row = document.createElement('button');
+                row.type = 'button';
+                row.className = 'row-btn px-2 py-1.5';
+                row.setAttribute('role', 'radio');
+                row.setAttribute('aria-checked', String(on));
+                row.innerHTML = `
+                    <span class="text-lg sm:text-2xl font-extrabold text-black flex items-center gap-3"><span aria-hidden="true">•</span> ${label}</span>
+                    ${markHTML(on)}`;
+                row.addEventListener('click', () => {
+                    selectPresetTime(mins);
+                    list.querySelectorAll('button')[PRESETS.findIndex(p => p[0] === mins)].focus({ preventScroll: true });
+                });
+                list.appendChild(row);
+            });
+        }
+
+        function syncInputsFromMinutes() {
+            $('input-hours').value = String(Math.floor(selectedMinutes / 60)).padStart(2, '0');
+            $('input-minutes').value = String(selectedMinutes % 60).padStart(2, '0');
+        }
+
+        function updateStartState() {
+            const invalid = selectedMinutes <= 0;
+            $('start-btn').disabled = invalid;
+            $('time-hint').classList.toggle('hidden', !invalid);
+        }
+
+        function selectPresetTime(mins) {
+            selectedMinutes = mins;
+            syncInputsFromMinutes();
+            renderPresets();
+            updateStartState();
+        }
+
+        function readTimeInputs() {
+            let h = parseInt($('input-hours').value, 10);
+            let m = parseInt($('input-minutes').value, 10);
+            h = Math.min(Math.max(isNaN(h) ? 0 : h, 0), 24);
+            m = Math.min(Math.max(isNaN(m) ? 0 : m, 0), 59);
+            if (h === 24) m = 0;
+            return h * 60 + m;
+        }
+
+
+        function sanitizeDigits(el) {
+            el.value = el.value
+                .replace(/[০-৯]/g, d => String('0123456789'['০১২৩৪৫৬৭৮৯'.indexOf(d)]))
+                .replace(/\D/g, '')
+                .slice(0, 2);
+        }
+
+        function onTimeInput(el) {
+            if (el) sanitizeDigits(el);
+            selectedMinutes = Math.min(readTimeInputs(), MAX_MINUTES);
+            renderPresets();
+            updateStartState();
+        }
+
+        function onTimeBlur() {
+            selectedMinutes = Math.min(readTimeInputs(), MAX_MINUTES);
+            syncInputsFromMinutes();
+            renderPresets();
+            updateStartState();
+        }
+
+        /* ---------- Toast ---------- */
+        function showNotification(text) {
+            const toast = $('toast-notification');
+            $('toast-text').textContent = text;
+            toast.classList.remove('-translate-y-28', 'opacity-0', 'pointer-events-none');
+            toast.classList.add('translate-y-0', 'opacity-100');
+            clearTimeout(window.toastTimeout);
+            window.toastTimeout = setTimeout(hideNotification, 3500);
+        }
+
+        function hideNotification() {
+            const toast = $('toast-notification');
+            toast.classList.remove('translate-y-0', 'opacity-100');
+            toast.classList.add('-translate-y-28', 'opacity-0', 'pointer-events-none');
+        }
+
+        /* ---------- Blocking timers + locks ---------- */
+        const LOCK_KEY = 'focusBlocker.locks.v2';
+        const OLD_LOCK_KEY = 'focusBlocker.lock.v1';
+        let locks = [];
+        let viewedLockId = null;
+        let memoryLocks = [];
+        let lastSavedAt = 0;
+        let lastFocusEl = null;
+
+        function readStoredLocks() {
+            try {
+                const raw = localStorage.getItem(LOCK_KEY);
+                if (raw) { const arr = JSON.parse(raw); if (Array.isArray(arr)) return arr; }
+            } catch (e) { /* ignore */ }
+            return [];
+        }
+        function mergeStored() {
+            const now = Date.now();
+            let changed = 0;
+            readStoredLocks().forEach(l => {
+                if (!l || typeof l.key !== 'string') return;
+                ensureLockTarget(l);
+                if (!isValidLock(l) || l.endAt <= now) return;
+                const mine = getLockByKey(l.key);
+                if (mine) {
+                    if (l.endAt > mine.endAt) {
+                        mine.endAt = l.endAt; mine.rule = l.rule; mine.message = l.message; mine.scopeIds = l.scopeIds;
+                        changed++;
+                    }
+                    return;
+                }
+                l.lastSeen = now;
+                locks.push(l);
+                changed++;
+            });
+            if (changed) { renderTargets(); ensureTicking(); updateTitle(now); }
+            return changed;
+        }
+        function saveLocks() {
+            mergeStored();
+            memoryLocks = locks;
+            try {
+                const now = Date.now();
+                const keep = readStoredLocks().filter(l => l && typeof l.id === 'string' && typeof l.key === 'string'
+                    && typeof l.endAt === 'number' && l.endAt > now
+                    && !locks.some(x => x.id === l.id || x.key === l.key));
+                localStorage.setItem(LOCK_KEY, JSON.stringify(locks.concat(keep)));
+            } catch (e) { /* storage blocked */ }
+        }
+        function loadLocks() {
+            const arr = readStoredLocks();
+            return arr.length ? arr : memoryLocks.slice();
+        }
+        function ensureLockTarget(l) {
+            if (!l || typeof l.key !== 'string' || TARGETS[l.key]) return;
+            if (/^site-\d+$/.test(l.key)) { addSiteSlot(l.key); return; }
+            const c = CATALOG.find(x => x.key === l.key);
+            if (c) addAppTarget(c.key, c.label, false);
+        }
+        function isValidLock(l) {
+            return l && typeof l.id === 'string' && typeof l.key === 'string' && !!TARGETS[l.key]
+                && typeof l.endAt === 'number' && typeof l.lastSeen === 'number'
+                && typeof l.title === 'string' && typeof l.message === 'string';
+        }
+
+        const getLockByKey = (key) => locks.find(l => l.key === key);
+        const getLockById  = (id)  => locks.find(l => l.id === id);
+        const secondsLeft  = (lock, now) => Math.max(0, Math.ceil((lock.endAt - now) / 1000));
+        const pad2 = (n) => String(n).padStart(2, '0');
+
+        function fmtClock(secs) {
+            const h = Math.floor(secs / 3600), m = Math.floor((secs % 3600) / 60), s = secs % 60;
+            return h > 0 ? `${h}:${pad2(m)}:${pad2(s)}` : `${pad2(m)}:${pad2(s)}`;
+        }
+
+        function renderTimer(secs) {
+            $('note-hours').textContent = pad2(Math.floor(secs / 3600));
+            $('note-minutes').textContent = pad2(Math.floor((secs % 3600) / 60));
+            $('note-seconds').textContent = pad2(secs % 60);
+        }
+
+        function updateBadges() {
+            const now = Date.now();
+            locks.forEach(l => {
+                const el = document.querySelector(`[data-chip="${l.key}"] span`);
+                if (el) el.textContent = fmtClock(secondsLeft(l, now));
+            });
+        }
+
+        function updateTitle(now) {
+            if (!locks.length) { document.title = 'Focus Guard'; return; }
+            const soonest = Math.min(...locks.map(l => secondsLeft(l, now)));
+            const extra = locks.length > 1 ? ` · ${locks.length} blocks` : '';
+            document.title = `🔒 ${fmtClock(soonest)}${extra} · Focus Guard`;
+        }
+
+        function buildBlockMessage() {
+            const name = displayName(currentTarget);
+            const list = getScopes(currentTarget);
+
+            if (list[0].state) {
+                return `ALL blocked! You can't access ${name} right now.`;
+            }
+            const names = list.filter(i => i.state && i.id !== 'all').map(i => i.label).join(', ');
+            return `Only ${names} on ${name} will be blocked right now!`;
+        }
+
+        function formatDuration(mins) {
+            const h = Math.floor(mins / 60), m = mins % 60;
+            return [h ? `${h}h` : '', m ? `${m}m` : ''].filter(Boolean).join(' ');
+        }
+
+        function formatUntil(ts) {
+            const d = new Date(ts);
+            const sameDay = d.toDateString() === new Date().toDateString();
+            return d.toLocaleString([], sameDay
+                ? { hour: 'numeric', minute: '2-digit' }
+                : { weekday: 'short', hour: 'numeric', minute: '2-digit' });
+        }
+
+        function openConfirm() {
+            const cur = strengthenId && getLockById(strengthenId);
+            if (cur) {
+                const newEnd = Math.max(cur.endAt, Date.now() + selectedMinutes * 60 * 1000);
+                $('confirm-title').textContent = 'Add to this block?';$('confirm-body').textContent =
+                    `${buildBlockMessage()} The block will now run until ${formatUntil(newEnd)}. ` +
+                    `It can only get longer: you can't shorten or remove anything that is already locked.`;
+            } else {
+                $('confirm-title').textContent = 'Lock this block?';$('confirm-body').textContent =
+                    `${buildBlockMessage()} Locked for ${formatDuration(selectedMinutes)}. ` +
+                    `Once started, you can't stop or remove it until the timer ends. ` +
+                    `You can still go back and block more apps or websites.`;
+            }
+            lastFocusEl = document.activeElement;
+            $('confirm-modal').classList.remove('hidden');$('confirm-cancel').focus();
+        }
+        function closeConfirm() {
+            $('confirm-modal').classList.add('hidden');
+            if (lastFocusEl && lastFocusEl.focus) lastFocusEl.focus({ preventScroll: true });
+        }
+        $('confirm-cancel').addEventListener('click', closeConfirm);
+        $('confirm-ok').addEventListener('click', () => {$('confirm-modal').classList.add('hidden');
+            beginLock();
+        });
+        document.addEventListener('keydown', (e) => {
+            const open = !$('confirm-modal').classList.contains('hidden');
+            if (!open) return;
+            if (e.key === 'Escape') { closeConfirm(); return; }
+            if (e.key === 'Tab') {
+                const btns = [$('confirm-cancel'),$('confirm-ok')];
+                const i = btns.indexOf(document.activeElement);
+                e.preventDefault();
+                btns[(i + (e.shiftKey ? -1 : 1) + btns.length) % btns.length].focus();
+            }
+        });
+
+        function startBlockingTimer() {
+            mergeStored();
+            if (!strengthenId && getLockByKey(currentTarget)) { viewLock(getLockByKey(currentTarget)); return; }
+            if (TARGETS[currentTarget].kind === 'website' && !parseSite(urlStore[currentTarget])) {
+                showNotification('আগে ওয়েবসাইটের সঠিক লিংক দিন 🔗');
+                $('custom-website-url').focus();
+                return;
+            }
+            const anySelected = getScopes(currentTarget).some(i => i.state);
+            if (!anySelected) {
+                showNotification('অনুগ্রহ করে অন্তত যেকোনো একটি অপশন সিলেক্ট (✓) করুন! 🎯');
+                return;
+            }
+            if (selectedMinutes <= 0) {
+                updateStartState();
+                return;
+            }
+            const cur = strengthenId && getLockById(strengthenId);
+            if (cur) {
+                const base = lockBase(cur);
+                const addsNew = getScopes(currentTarget).some(i => i.state && !base.has(i.id));
+                const extends_ = Date.now() + selectedMinutes * 60 * 1000 > cur.endAt;
+                if (!addsNew && !extends_) {
+                    showNotification('নতুন কিছু যোগ করুন বা সময় বাড়ান ⏱️');
+                    return;
+                }
+            }
+            openConfirm();
+        }
+
+        function strengthenLock(l, now) {
+            l.rule = buildRule(l.key);
+            l.message = buildBlockMessage();
+            l.scopeIds = getScopes(l.key).filter(i => i.state).map(i => i.id);
+            l.name = displayName(l.key);
+            l.endAt = Math.max(l.endAt, now + selectedMinutes * 60 * 1000);
+            l.minutes = Math.max(l.minutes || 0, selectedMinutes);
+            strengthenId = null;
+            $('custom-website-url').disabled = false;
+            $('start-btn').textContent = 'Start Blocking';$('strengthen-hint').classList.add('hidden');
+            saveLocks();
+            saveConfig();
+            renderTargets();
+            updateTitle(now);
+            viewLock(l);
+        }
+
+        function beginLock() {
+            const now = Date.now();
+            if (strengthenId) {
+                const cur = getLockById(strengthenId);
+                if (cur) { strengthenLock(cur, now); return; }
+                strengthenId = null;
+            }
+            mergeStored();
+            const dup = getLockByKey(currentTarget);
+            if (dup) { viewLock(dup); return; }
+            pendingNewKey = null;
+            const t = TARGETS[currentTarget];
+            const lock = {
+                id: now.toString(36) + Math.random().toString(36).slice(2, 6),
+                key: currentTarget,
+                name: displayName(currentTarget),
+                rule: buildRule(currentTarget),
+                startedAt: now,
+                endAt: now + selectedMinutes * 60 * 1000,
+                lastSeen: now,
+                minutes: selectedMinutes,
+                title: t.kind === 'website' ? 'Website Blocked!' : 'App Blocked!',
+                message: buildBlockMessage(),
+                scopeIds: getScopes(currentTarget).filter(i => i.state).map(i => i.id)
+            };
+            locks.push(lock);
+            saveLocks();
+            saveConfig();
+            renderTargets();
+            ensureTicking();
+            updateTitle(now);
+            viewLock(lock);
+        }
+
+        function viewLock(lock) {
+            viewedLockId = lock.id;
+            $('active-header-title').textContent = lock.title;
+            $('active-app-name').textContent = lock.message;
+            $('lock-until').textContent = formatUntil(lock.endAt);
+            renderTimer(secondsLeft(lock, Date.now()));
+            navigateTo('screen-active');
+        }
+
+
+        const CLOCK_GUARD = true;
+        const CLOCK_JUMP_MS = 30000;
+        let lastWall = Date.now(), lastPerf = performance.now(), wasHidden = false;
+        let pendingForward = null;
+        const resumedNear = (t) => typeof window.__cbResumeAt === 'number' && Math.abs(window.__cbResumeAt - t) < 20000;
+        document.addEventListener('visibilitychange', () => { if (document.hidden) wasHidden = true; });
+
+        function ensureTicking() {
+            if (!countdownInterval) {
+                lastWall = Date.now(); lastPerf = performance.now(); wasHidden = false;
+                countdownInterval = setInterval(tick, 250);
+            }
+        }
+
+        function tick() {
+            const now = Date.now();
+            const perf = performance.now();
+            const jump = (now - lastWall) - (perf - lastPerf);
+            
+
+            if (CLOCK_GUARD && !wasHidden && !document.hidden && jump > CLOCK_JUMP_MS) {
+                if (resumedNear(now)) {
+
+                    lastWall = now; lastPerf = perf; wasHidden = document.hidden;
+                    return;
+                }
+                if (pendingForward) pendingForward.amount += jump;
+                else pendingForward = { amount: jump, wall: now, perf };
+            }
+            let forward = 0;
+            if (pendingForward) {
+                if (resumedNear(pendingForward.wall)) pendingForward = null;
+                else if (perf - pendingForward.perf >= 3000) { forward = pendingForward.amount; pendingForward = null; }
+            }
+            lastWall = now; lastPerf = perf; wasHidden = document.hidden;
+            const done = [];
+
+            locks.forEach(l => {
+                if (forward) {
+                    l.endAt += forward;
+                    if (l.id === viewedLockId) $('lock-until').textContent = formatUntil(l.endAt);
+                    saveLocks();
+                }
+                if (now < l.lastSeen - 2000) {
+                    l.endAt += l.lastSeen - now;
+                    if (l.id === viewedLockId) $('lock-until').textContent = formatUntil(l.endAt);
+                    saveLocks();
+                }
+                l.lastSeen = now;
+                if (secondsLeft(l, now) === 0) done.push(l);
+            });
+
+            if (!pendingForward) done.forEach(finishLock);
+
+            const viewed = getLockById(viewedLockId);
+            if (viewed && $('screen-active').classList.contains('active')) {
+                renderTimer(secondsLeft(viewed, now));
+            }
+            updateBadges();
+            updateTitle(now);
+
+            if (now - lastSavedAt > 1000) { lastSavedAt = now; saveLocks(); }
+            if (!locks.length) { clearInterval(countdownInterval); countdownInterval = null; }
+        }
+
+        function finishLock(lock) {
+            locks = locks.filter(l => l.id !== lock.id);
+            getScopes(lock.key).forEach(i => { i.state = false; });
+            saveLocks();
+            saveConfig();
+            if (strengthenId === lock.id) {
+                strengthenId = null;
+                $('custom-website-url').disabled = false;
+                $('start-btn').textContent = 'Start Blocking';$('strengthen-hint').classList.add('hidden');
+                if ($('screen-config').classList.contains('active')) navigateTo('screen-2');
+            }
+
+            const wasViewing = viewedLockId === lock.id && $('screen-active').classList.contains('active');
+            if (viewedLockId === lock.id) viewedLockId = null;
+            renderTargets();
+            if (wasViewing) navigateTo('screen-2');
+            showNotification(`${lock.name || TARGETS[lock.key].label}-এর ব্লক শেষ! দারুণ করেছেন 🎉`);
+        }
+
+        function resumeLocks() {
+            try { localStorage.removeItem(OLD_LOCK_KEY); } catch (e) { /* ignore */ }
+            const now = Date.now();
+            const seen = new Set();
+            let expired = 0;
+
+            const stored = loadLocks();
+            stored.forEach(ensureLockTarget);
+            stored.filter(isValidLock).forEach(l => {
+                if (seen.has(l.key)) return;
+                if (now < l.lastSeen - 2000) l.endAt += l.lastSeen - now;
+                if (l.endAt <= now) { expired++; return; }
+                l.lastSeen = now;
+                seen.add(l.key);
+                locks.push(l);
+            });
+
+            saveLocks();
+            if (expired) showNotification('সময় শেষ! দারুণ করেছেন 🎉');
+            if (locks.length) {
+                renderTargets();
+                ensureTicking();
+                updateTitle(now);
+                navigateTo('screen-2');
+            }
+        }
+
+        window.addEventListener('storage', (e) => {
+            if (e.storageArea && e.storageArea !== localStorage) return;
+            if (e.key === null || (e.key === LOCK_KEY && e.newValue === null)) saveLocks();
+            else if (e.key === LOCK_KEY) mergeStored();
+        });
+
+        function activeRules() {
+            const now = Date.now();
+            return locks.filter(l => l.endAt > now && l.rule).map(l => Object.assign({}, l.rule, { endAt: l.endAt }));
+        }
+
+        function pathMatches(path, p) {
+            const q = String(p).toLowerCase();
+            if (q === '/') return path === '/';
+            if (q.indexOf('*/') === 0) {
+                const m = /^\/[^/]+/.exec(path);
+                if (!m) return false;
+                const rest = path.slice(m[0].length), t = q.slice(1);
+                return rest === t || rest.indexOf(t + '/') === 0;
+            }
+            return path === q || path.indexOf(q + '/') === 0;
+        }
+
+        function isBlocked(raw) {
+            const v = (raw || '').trim();
+            let u;
+            try { u = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(v) ? v : 'https://' + v); } catch (e) { return null; }
+            const host = u.hostname.toLowerCase().replace(/^www\./, '');
+            let path = u.pathname.toLowerCase().replace(/\/{2,}/g, '/');
+            if (path.length > 1) path = path.replace(/\/$/, '');
+            for (const r of activeRules()) {
+                if (r.kind !== 'website') continue;
+                const domains = r.domains && r.domains.length ? r.domains : (r.host ? [r.host] : []);
+                if (!domains.some(d => host === d || host.endsWith('.' + d))) continue;
+                if (r.all) return { blocked: true, reason: r.target + ' (everything)', endAt: r.endAt };
+                for (const s of (r.sections || [])) {
+                    if ((s.hosts || []).includes(host) && path !== '/') return { blocked: true, reason: s.label, endAt: r.endAt };
+                    for (const p of (s.paths || [])) {
+                        if (pathMatches(path, p)) return { blocked: true, reason: s.label, endAt: r.endAt };
+                    }
+                }
+            }
+            return { blocked: false };
+        }
+
+        function restoreRules(list) {
+            if (!Array.isArray(list)) return 0;
+            const now = Date.now();
+            const nk = (x) => String(x || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+            let added = 0;
+            list.slice(0, 60).forEach(r => {
+                try {
+                    if (!r || typeof r.target !== 'string' || typeof r.endAt !== 'number' || !(r.endAt > now)) return;
+                    if (r.kind !== 'app' && r.kind !== 'website') return;
+                    if (locks.some(l => l.rule && l.rule.kind === r.kind && nk(l.rule.target) === nk(r.target))) return;
+                    let key = null;
+                    if (r.kind === 'app') {
+                        const t = APPS.find(a => nk(a.label) === nk(r.target));
+                        if (t) key = t.key;
+                        else {
+                            const c = CATALOG.find(x => nk(x.label) === nk(r.target));
+                            if (c) { addAppTarget(c.key, c.label, false); key = c.key; }
+                            else if (APPS.filter(a => a.custom).length < MAX_CUSTOM_APPS) {
+                                key = 'app-c' + (customAppSeq + 1);
+                                addAppTarget(key, r.target.slice(0, 24));
+                            }
+                        }
+                    } else {
+                        const host = (typeof r.host === 'string' && r.host) || (Array.isArray(r.domains) && r.domains[0]) || null;
+                        if (!host || !parseSite(host)) return;
+                        const slot = SITES.find(x => !getLockByKey(x.key) && !urlStore[x.key]) || addSiteSlot()
+                            || SITES.find(x => !getLockByKey(x.key));
+                        if (!slot) return;
+                        key = slot.key;
+                        urlStore[key] = String(host).slice(0, 300);
+                        delete scopeStore[key];
+                        rebuildSiteScopes(key);
+                    }
+                    if (!key || !TARGETS[key] || getLockByKey(key)) return;
+
+                    const list2 = getScopes(key);
+                    list2[0].state = !!r.all;
+                    const secs = Array.isArray(r.sections) ? r.sections : [];
+                    list2.slice(1).forEach(i => { if (r.all || secs.some(s => s && s.label === i.label)) i.state = true; });
+                    if (TARGETS[key].kind === 'website') {
+                        secs.forEach(s => {
+                            if (!s || typeof s.label !== 'string' || list2.some(i => i.label === s.label)) return;
+                            if (list2.filter(i => i.custom).length >= MAX_CUSTOM_RULES) return;
+                            const item = { id: 'c:' + nk(s.label).slice(0, 40), label: s.label.slice(0, 60), state: true, custom: true };
+                            if (Array.isArray(s.paths) && s.paths.length) item.paths = s.paths.filter(x => typeof x === 'string').slice(0, 6);
+                            if (Array.isArray(s.hosts) && s.hosts.length) item.hosts = s.hosts.filter(x => typeof x === 'string').slice(0, 6);
+                            list2.push(item);
+                        });
+                    }
+
+                    const saved = currentTarget;
+                    currentTarget = key;
+                    let message;
+                    try { message = buildBlockMessage(); } finally { currentTarget = saved; }
+                    locks.push({
+                        id: now.toString(36) + Math.random().toString(36).slice(2, 6),
+                        key,
+                        name: displayName(key),
+                        rule: buildRule(key),
+                        startedAt: now,
+                        endAt: r.endAt,
+                        lastSeen: now,
+                        minutes: Math.max(1, Math.ceil((r.endAt - now) / 60000)),
+                        title: TARGETS[key].kind === 'website' ? 'Website Blocked!' : 'App Blocked!',
+                        message,
+                        scopeIds: list2.filter(i => i.state).map(i => i.id)
+                    });
+                    added++;
+                } catch (e) { /* ignore */ }
+            });
+            if (added) {
+                saveLocks(); saveConfig(); saveLayout();
+                renderTargets();
+                ensureTicking();
+                updateTitle(now);
+                if (!$('screen-config').classList.contains('active') && !$('screen-active').classList.contains('active')) navigateTo('screen-2');
+            }
+            return added;
+        }
+        window.FocusBlocker = { getActiveRules: activeRules, isBlocked, restore: restoreRules };
+
+        /* ---------- Init ---------- */
+        loadLayout();
+        loadConfig();
+        renderTargets();
+        syncInputsFromMinutes();
+        renderPresets();
+        updateStartState();
+        resumeLocks();
+    </script>
+</body>
+</html>

@@ -1,0 +1,53 @@
+{
+  "name": "comeback",
+  "version": "1.0.0",
+  "description": "Focus and Distraction Blocker",
+  "main": "main.js",
+  "author": "Comeback",
+  "scripts": {
+    "prep": "node tools/prepare-assets.js && tailwindcss -c tailwind.config.js -i src/input.css -o tailwind.css --minify",
+    "start": "npm run prep && npx electron main.js",
+    "pack": "npm run prep && electron-builder --win --dir",
+    "build": "npm run prep && electron-builder --win"
+  },
+  "keywords": [],
+  "license": "ISC",
+  "devDependencies": {
+    "@fontsource/baloo-da-2": "^5.0.0",
+    "electron": "^44.7.0",
+    "electron-builder": "^25.1.8",
+    "tailwindcss": "^3.4.17"
+  },
+  "build": {
+    "appId": "com.focusguard.app",
+    "productName": "Focus Guard",
+    "directories": {
+      "buildResources": "build",
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "guardian.js",
+      "preload.js",
+      "index.html",
+      "focusguard.ico",
+      "package.json",
+      "tailwind.css",
+      "fonts/**/*"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "focusguard.ico",
+      "requestedExecutionLevel": "asInvoker"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": true,
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": "focusguard.ico",
+      "uninstallerIcon": "focusguard.ico",
+      "shortcutName": "Focus Guard",
+      "deleteAppDataOnUninstall": false
+    }
+  }
+}
