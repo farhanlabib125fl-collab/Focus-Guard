@@ -6,20 +6,20 @@
 
 ## 🚀 Quick Download (for Windows)
 
-Simply click the button below to go directly to the latest download page and get the setup file:
+Click the button below to directly download the Windows installer:
 
-[![Download Focus Guard](https://img.shields.io/badge/Download-Focus_Guard_v1.0.0-blue?style=for-the-badge&logo=windows)](https://github.com/farhanlabib125fl-collab/Focus-Guard/releases/tag/v1.0.0)
+[![Download Focus Guard](https://img.shields.io/badge/Download-Focus_Guard_v1.0.0-blue?style=for-the-badge&logo=windows)](https://github.com/farhanlabib125fl-collab/Focus-Guard/releases/download/v1.0.0/Focus.Guard.Setup.1.0.0.exe)
 
-> 💡 **Direct Release Link:**  
-> 👉 **[Click here to download Focus Guard v1.0.0](https://github.com/farhanlabib125fl-collab/Focus-Guard/releases/tag/v1.0.0)**
+> 💡 **Direct Download Link:**  
+> 👉 **[Click here to download Focus.Guard.Setup.1.0.0.exe](https://github.com/farhanlabib125fl-collab/Focus-Guard/releases/download/v1.0.0/Focus.Guard.Setup.1.0.0.exe)**
 
 ---
 
 ## 📖 How to Install & Use (3 Easy Steps)
 
-1. **Download:** Click the download button above and click on the `.exe` file under the **Assets** section.
+1. **Download:** Click the download button above to save the setup file on your PC.
 2. **Install:** Double-click the downloaded file.  
-   *(If Windows Defender shows a prompt saying "Windows protected your PC", just click **More Info** and then **Run Anyway**).*
+   *(If Windows Defender shows "Windows protected your PC", click **More Info** and then **Run Anyway**).*
 3. **Stay Focused:** Open Focus Guard, select the apps you want to block, and enjoy distraction-free sessions!
 
 ---
@@ -27,9 +27,9 @@ Simply click the button below to go directly to the latest download page and get
 ## ✨ Key Features
 
 - 🚫 **Easy Distraction Blocking:** Block distracting software and apps with a single click.
-- ⚡ **Fast & Lightweight:** Built using **Electron.js** and styled with **Tailwind CSS** for a clean UI.
-- 🔒 **100% Private:** All your settings stay local on your computer. No data collection.
-- 🆓 **Totally Free:** No subscriptions, no hidden ads, and completely open-source.
+- ⚡ **Fast & Lightweight:** Built using **Electron.js** and styled with **Tailwind CSS**.
+- 🔒 **100% Private:** All your settings stay local on your computer.
+- 🆓 **Totally Free:** No subscriptions, no ads, and completely open-source.
 
 ---
 
