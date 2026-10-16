@@ -179,15 +179,16 @@ ConvertTo-Json -InputObject @($items) -Compress
 
     function resolveApp(name, items) {
         const n = norm(name);
-        let hits = items.filter((i) => norm(i.name) === n || norm(i.exe) === n);
-        if (!hits.length && n.length >= 5) hits = items.filter((i) => norm(i.name).includes(n));
+        // shudhu pura nam mille (partial jemon "wind" -> "Where Winds Meet" ar cholbe na)
+        const hits = items.filter((i) => norm(i.name) === n || norm(i.exe) === n);
         const procs = [...new Set(hits
             .map((i) => String(i.exe || '').toLowerCase())
             .filter((x) => x.endsWith('.exe') && !IGNORE_EXE.has(norm(x))))];
         const uwp = [...new Set(hits
             .map((i) => String(i.appid || '').split('!')[0])
             .filter((x) => PFN_RE.test(x)))];
-        return { found: hits.length > 0, procs, uwp };
+        const exact = hits.find((i) => norm(i.name) === n);
+        return { found: hits.length > 0, procs, uwp, name: exact ? String(exact.name) : null };
     }
 
     function resolveUwpExes(pfn) {
@@ -220,6 +221,11 @@ ConvertTo-Json -InputObject @($items) -Compress
 
     function suggestApp(name, items) {
         const n = norm(name);
+        if (n.length >= 3) {
+            const subs = [...new Set(items.map((i) => String(i.name || '')).filter((nm) => nm && norm(nm) !== n && norm(nm).includes(n)))]
+                .sort((a, b) => a.length - b.length).slice(0, 3);
+            if (subs.length) return subs.map((x) => `"${x}"`).join(', ');
+        }
         let best = null;
         let bestD = 99;
         items.forEach((i) => {
@@ -228,7 +234,7 @@ ConvertTo-Json -InputObject @($items) -Compress
             const d = editDistance(n, cand);
             if (d < bestD) { bestD = d; best = i.name; }
         });
-        return bestD <= Math.max(1, Math.floor(n.length / 4)) ? best : null;
+        return bestD <= Math.max(1, Math.floor(n.length / 4)) ? `"${best}"` : null;
     }
 
     function saveAlias(name, procs) {
@@ -262,13 +268,13 @@ ConvertTo-Json -InputObject @($items) -Compress
             return {
                 ok: false,
                 message: `No app named "${name}" was found on this PC.` +
-                    (s ? ` Did you mean "${s}"?` : ' Check the spelling, or open the app once and try again.')
+                    (s ? ` Did you mean ${s}? Type the full app name.` : ' Check the spelling, or open the app once and try again.')
             };
         }
         let procs = r.procs;
         if (!procs.length && r.uwp.length) procs = await resolveUwpExes(r.uwp[0]);
         saveAlias(name, procs);
-        return { ok: true };
+        return { ok: true, name: r.name || null };
     });
 
     const HOOK_JS = String.raw`(function () {
@@ -371,6 +377,18 @@ ConvertTo-Json -InputObject @($items) -Compress
                 backgroundThrottling: false
             }
         });
+        // dev mode (npm start) e taskbar e Electron er logo ashe (packaged e exe er icon i thik kaj kore).
+        if (IS_WIN && !app.isPackaged && fs.existsSync(ICON_PATH)) {
+            try {
+                mainWindow.setAppDetails({
+                    appId: 'com.focusguard.app',
+                    appIconPath: ICON_PATH,
+                    appIconIndex: 0,
+                    relaunchCommand: `"${process.execPath}" "${app.getAppPath()}"`,
+                    relaunchDisplayName: 'Focus Guard'
+                });
+            } catch (e) { /* ignore */ }
+        }
 
         try { const ic = appIcon(); if (ic) mainWindow.setIcon(ic); } catch (e) { /* ignore */ }
         mainWindow.removeMenu();   // File/Edit/View/Window menu bar (sada ongsho) bad

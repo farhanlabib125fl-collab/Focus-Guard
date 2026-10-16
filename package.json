@@ -8,15 +8,17 @@
     "prep": "node tools/prepare-assets.js && tailwindcss -c tailwind.config.js -i src/input.css -o tailwind.css --minify",
     "start": "npm run prep && npx electron main.js",
     "pack": "npm run prep && electron-builder --win --dir",
-    "build": "npm run prep && electron-builder --win"
+    "build": "npm run prep && electron-builder --win",
+    "devicon": "node tools/set-dev-icon.js"
   },
   "keywords": [],
   "license": "ISC",
   "devDependencies": {
     "@fontsource/baloo-da-2": "^5.0.0",
     "electron": "^44.7.0",
-    "electron-builder": "^26.15.3",
-    "tailwindcss": "^3.4.19"
+    "electron-builder": "^25.1.8",
+    "rcedit": "^5.0.2",
+    "tailwindcss": "^3.4.17"
   },
   "build": {
     "appId": "com.focusguard.app",

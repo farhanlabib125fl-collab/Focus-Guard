@@ -250,7 +250,14 @@ function buildEffective(rules, aliases) {
                     }
                     return APP_SECTION_RULES[s.label] || APP_SECTION_RULES[r.target + ' ' + s.label];
                 }).filter(Boolean);
-                if (sections.length) web.push({ target: r.target, domains: known.domains, all: false, sections, endAt: r.endAt });
+                if (sections.length) {
+                    web.push({ target: r.target, domains: known.domains, all: false, sections, endAt: r.endAt });
+                } else {
+                    // section web path diye enforce kora jay na -> pura app block (kichu na kora theke nirapod)
+                    known.procs.forEach((p) => procExact.add(p));
+                    web.push({ target: r.target, domains: known.domains, all: true, sections: [], endAt: r.endAt });
+                    known.domains.forEach((d) => hostDomains.add(d));
+                }
             }
         } else if (aliases[n] && aliases[n].length) {
             aliases[n].forEach((p) => procExact.add(String(p).toLowerCase()));
