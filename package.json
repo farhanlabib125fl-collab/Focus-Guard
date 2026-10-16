@@ -1,9 +1,9 @@
 {
-  "name": "comeback",
+  "name": "focus-guard",
   "version": "1.0.0",
   "description": "Focus and Distraction Blocker",
   "main": "main.js",
-  "author": "Comeback",
+  "author": "Focus Guard",
   "scripts": {
     "prep": "node tools/prepare-assets.js && tailwindcss -c tailwind.config.js -i src/input.css -o tailwind.css --minify",
     "start": "npm run prep && npx electron main.js",

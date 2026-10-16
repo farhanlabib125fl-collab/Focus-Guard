@@ -1,5 +1,5 @@
 'use strict';
-const { app, BrowserWindow, dialog, Notification, Tray, Menu, nativeImage, ipcMain, session, powerMonitor } = require('electron');
+const { app, BrowserWindow, dialog, Notification, Tray, Menu, nativeImage, ipcMain, session, powerMonitor, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { exec, spawn } = require('child_process');
@@ -53,6 +53,24 @@ function startUI() {
     const restoreTried = new Map();      // ruleKey -> shesh kobe renderer e firiye anar chesta hoyechhe
 
     if (IS_WIN) { try { app.setAppUserModelId('com.focusguard.app'); } catch (e) { /* ignore */ } }
+
+    // Dev mode (npm start) e Windows notification/taskbar e "Electron" dekhay, karon AppUserModelId er sathe kono Start Menu shortcut thake na.
+    // Tai ekta "Focus Guard" shortcut banano hoy jar AppUserModelId same; tokhon Windows oi shortcut er name use kore.
+    function ensureDevShortcut() {
+        if (!IS_WIN || app.isPackaged) return;
+        try {
+            const lnk = path.join(process.env.APPDATA || '', 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Focus Guard.lnk');
+            shell.writeShortcutLink(lnk, 'replace', {
+                target: process.execPath,
+                args: `"${app.getAppPath()}"`,
+                cwd: app.getAppPath(),
+                description: 'Focus Guard',
+                icon: fs.existsSync(ICON_PATH) ? ICON_PATH : process.execPath,
+                iconIndex: 0,
+                appUserModelId: 'com.focusguard.app'
+            });
+        } catch (e) { /* ignore */ }
+    }
 
     const norm = G.norm;
 
@@ -594,6 +612,7 @@ ConvertTo-Json -InputObject @($items) -Compress
 
     app.whenReady().then(async () => {
         app.setAppUserModelId('com.focusguard.app');
+        ensureDevShortcut();
         try { session.defaultSession.setPermissionRequestHandler((wc, permission, cb) => cb(false)); } catch (e) { /* ignore */ }
 
         if (IS_WIN) {
