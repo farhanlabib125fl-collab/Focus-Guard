@@ -1,26 +1,42 @@
 'use strict';
+/*
+ * Dev mode (npm start) e Windows taskbar / notification e "Electron" er bodole "Focus Guard" dekhanor jonno
+ * node_modules/electron/dist/electron.exe er metadata (FileDescription, ProductName) change kore.
+ * Packaged build (npm run build) e eta dorkar nei - electron-builder nije kore.
+ * Electron bondho obosthay chalate hobe, na hole file locked thakbe (tokhon skip kore, start e problem hobe na).
+ */
 const fs = require('fs');
-const path = require('path');
-const { execFileSync } = require('child_process');
 
-if (process.platform !== 'win32') { console.log('Skipped (Windows only).'); process.exit(0); }
+const NAME = 'Focus Guard';
 
-const root = path.join(__dirname, '..');
-const exe = path.join(root, 'node_modules', 'electron', 'dist', 'electron.exe');
-const ico = path.join(root, 'focusguard.ico');
-const bin = path.join(root, 'node_modules', 'rcedit', 'bin', process.arch === 'ia32' ? 'rcedit.exe' : 'rcedit-x64.exe');
+async function main() {
+    if (process.platform !== 'win32') return;
 
-const missing = [['electron.exe', exe], ['focusguard.ico', ico], ['rcedit', bin]].find(([, p]) => !fs.existsSync(p));
-if (missing) {
-    console.error(missing[0] + ' not found: ' + missing[1]);
-    if (missing[0] === 'rcedit') console.error('Run this first:  npm install');
-    process.exit(1);
+    let exe;
+    try { exe = require('electron'); } catch (e) { return; }
+    if (typeof exe !== 'string' || !fs.existsSync(exe)) return;
+
+    let rcedit;
+    try {
+        const m = require('rcedit');
+        rcedit = m.rcedit || m.default || m;
+    } catch (e) {
+        const m = await import('rcedit');
+        rcedit = m.rcedit || m.default;
+    }
+
+    await rcedit(exe, {
+        'version-string': {
+            FileDescription: NAME,
+            ProductName: NAME,
+            InternalName: NAME,
+            OriginalFilename: NAME + '.exe',
+            CompanyName: NAME
+        }
+    });
+    console.log('[set-dev-name] electron.exe metadata ->', NAME);
 }
 
-try {
-    execFileSync(bin, [exe, '--set-icon', ico], { stdio: 'inherit' });
-    console.log('Done. Start the app again with: npm start');
-} catch (e) {
-    console.error('Failed. Close every running Focus Guard / electron.exe (also in Task Manager) and try again.\n' + e.message);
-    process.exit(1);
-}
+main().catch((e) => {
+    console.warn('[set-dev-name] skipped:', e && e.message ? e.message : e);
+});

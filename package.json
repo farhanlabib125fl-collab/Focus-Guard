@@ -6,7 +6,7 @@
   "author": "Focus Guard",
   "scripts": {
     "prep": "node tools/prepare-assets.js && tailwindcss -c tailwind.config.js -i src/input.css -o tailwind.css --minify",
-    "start": "npm run prep && npx electron main.js",
+    "start": "npm run prep && node tools/set-dev-name.js && npx electron main.js",
     "pack": "npm run prep && electron-builder --win --dir",
     "build": "npm run prep && electron-builder --win",
     "devicon": "node tools/set-dev-icon.js"
