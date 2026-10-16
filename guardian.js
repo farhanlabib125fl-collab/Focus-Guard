@@ -18,6 +18,7 @@ const F = {
     watcherPid: P('watcher.pid'),
     aliases: P('aliases.json'),
     clock: P('clock.json'),
+    mute: P('mute.json'),
     log: P('guardian.log')
 };
 const TASK_GUARD = 'ComebackGuardian';
@@ -31,6 +32,7 @@ const MARK_START = '# --- Focus Guard START ---';
 const MARK_END = '# --- Focus Guard END ---';
 const BLOCK_RE = new RegExp('\\r?\\n?' + MARK_START + '[\\s\\S]*?' + MARK_END + '[^\\r\\n]*(\\r?\\n)?', 'g');
 
+const CLOCK_SYNC_MS = 60000;
 const CLOSE_GRACE_MS = 8000;         
 const CLOCK_NOISE_MS = 4000;      
 const TIME_SOURCES = ['1.1.1.1', 'www.msftconnecttest.com', 'clients3.google.com', 'neverssl.com'];
@@ -240,7 +242,14 @@ function buildEffective(rules, aliases) {
                 web.push({ target: r.target, domains: known.domains, all: true, sections: [], endAt: r.endAt });
                 known.domains.forEach((d) => hostDomains.add(d));
             } else {
-                const sections = (r.sections || []).map((s) => APP_SECTION_RULES[s.label]).filter(Boolean);
+                const sections = (r.sections || []).map((s) => {
+                    if (s && ((Array.isArray(s.paths) && s.paths.length) || (Array.isArray(s.hosts) && s.hosts.length))) {
+                        const o = { label: s.label, paths: Array.isArray(s.paths) ? s.paths : [] };
+                        if (Array.isArray(s.hosts) && s.hosts.length) o.hosts = s.hosts;
+                        return o;
+                    }
+                    return APP_SECTION_RULES[s.label] || APP_SECTION_RULES[r.target + ' ' + s.label];
+                }).filter(Boolean);
                 if (sections.length) web.push({ target: r.target, domains: known.domains, all: false, sections, endAt: r.endAt });
             }
         } else if (aliases[n] && aliases[n].length) {
@@ -696,6 +705,12 @@ $hosts = Join-Path $env:SystemRoot 'System32\drivers\etc\hosts'
 $c = [IO.File]::ReadAllText($hosts)
 $n = [regex]::Replace($c, '(?s)\r?\n?# --- Focus Guard START ---.*?# --- Focus Guard END ---[^\r\n]*(\r?\n)?', '')
 if ($n -ne $c) { [IO.File]::WriteAllText($hosts, $n) }
+$mf = Join-Path $env:ProgramData 'ComebackFocus\mute.json'
+if (Test-Path $mf) {
+    $tk = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\PushNotifications'
+    try { $m = Get-Content -Raw $mf | ConvertFrom-Json } catch { $m = $null }
+    if ($m -and $m.prev -ne $null) { Set-ItemProperty -Path $tk -Name ToastEnabled -Value ([int]$m.prev) -Type DWord } else { Remove-ItemProperty -Path $tk -Name ToastEnabled }
+}
 reg delete 'HKLM\SOFTWARE\ComebackFocus' /f | Out-Null
 schtasks /Delete /TN ComebackGuardian /F | Out-Null
 schtasks /Delete /TN ComebackUI /F | Out-Null
@@ -712,6 +727,16 @@ try {
     $st = Get-Content -Raw -Encoding UTF8 (Join-Path $dir 'state.json') | ConvertFrom-Json
     foreach ($r in @($st.rules)) { if ($r.endAt -gt $now) { $active = $true } }
 } catch { }
+if (-not $active) {
+    try {
+        $k = [Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::LocalMachine, [Microsoft.Win32.RegistryView]::Registry64).OpenSubKey('SOFTWARE\ComebackFocus')
+        $b = $k.GetValue('S')
+        if ($b) {
+            $rules = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($b)) | ConvertFrom-Json
+            foreach ($r in @($rules)) { if ($r.endAt -gt $now) { $active = $true } }
+        }
+    } catch { }
+}
 if ($active) { exit 7 } else { exit 0 }
 `;
 
@@ -734,6 +759,34 @@ function ensureDataDir() {
         lockDownDataDir();
         try { writeAtomic(P('cleanup.ps1'), CLEANUP_PS1); writeAtomic(P('lockcheck.ps1'), LOCKCHECK_PS1); } catch (e) { /* ignore */ }
     }
+}
+
+/* uninstaller ei duita file er upor nirbhor kore: muche felle / bodle felle prati second e abar thik kore dei,
+ * ar admin hole file duita te "shudhu admin e bodlate pare" tala dei (pura folder e tala dilam na, karon UI admin chhara chalale state.json likhte parbe na) */
+const aclDoneFor = new Set();
+function lockGuardFile(file) {
+    if (!IS_WIN || !ctx.isAdmin || aclDoneFor.has(file)) return;
+    aclDoneFor.add(file);
+    try {
+        execFileSync('icacls', [file, '/inheritance:r', '/grant:r', '*S-1-5-18:F', '*S-1-5-32-544:F', '*S-1-5-32-545:RX', '/C', '/Q'],
+            { stdio: 'ignore', windowsHide: true, timeout: 10000 });
+    } catch (e) { log('acl failed:', path.basename(file), e.message); }
+}
+
+function ensureHelperScripts() {
+    if (!IS_WIN) return;
+    try {
+        if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+        [['lockcheck.ps1', LOCKCHECK_PS1], ['cleanup.ps1', CLEANUP_PS1]].forEach(([name, text]) => {
+            const f = P(name);
+            let cur = null;
+            try { cur = fs.readFileSync(f, 'utf8'); } catch (e) { /* nei */ }
+            if (cur !== text) {
+                if (writeAtomic(f, text)) { aclDoneFor.delete(f); log(name + ' (re)written'); }
+            }
+            lockGuardFile(f);
+        });
+    } catch (e) { /* ignore */ }
 }
 
 /* ---------------- state: file + memory + registry backup ---------------- */
@@ -819,8 +872,48 @@ function ensureTasks(launch, isAdmin) {
     });
 }
 
+/* ---------------- notification mute (Deep focus) ---------------- */
+const TOAST_KEY = 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\PushNotifications';
+let muted = false;
+let muteErrAt = -1e9;
+function readToastEnabled() {
+    try {
+        const out = execFileSync('reg', ['query', TOAST_KEY, '/v', 'ToastEnabled'], { encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'] });
+        const m = /ToastEnabled\s+REG_DWORD\s+0x([0-9a-f]+)/i.exec(out);
+        return m ? parseInt(m[1], 16) : null;
+    } catch (e) { return null; }
+}
+function writeToastEnabled(v) {
+    try {
+        if (v === null) execFileSync('reg', ['delete', TOAST_KEY, '/v', 'ToastEnabled', '/f'], { stdio: 'ignore', windowsHide: true });
+        else execFileSync('reg', ['add', TOAST_KEY, '/v', 'ToastEnabled', '/t', 'REG_DWORD', '/d', String(v), '/f'], { stdio: 'ignore', windowsHide: true });
+        return true;
+    } catch (e) { return false; }
+}
+function restoreToast() {
+    if (!IS_WIN) return;
+    const st = readJson(F.mute);
+    if (!st) { muted = false; return; }
+    if (writeToastEnabled(typeof st.prev === 'number' ? st.prev : null)) {
+        try { fs.unlinkSync(F.mute); } catch (e) { /* ignore */ }
+        muted = false;
+        log('notifications restored');
+    }
+}
+function ensureMute(want) {
+    if (!IS_WIN) return;
+    if (want) {
+        if (muted || mono() - muteErrAt < 10000) return;
+        if (!readJson(F.mute)) writeAtomic(F.mute, JSON.stringify({ prev: readToastEnabled() }));   // ager obostha mone rakhi (crash hole-o ferot dewa jabe)
+        if (writeToastEnabled(0)) { muted = true; log('notifications muted'); } else { muteErrAt = mono(); log('notification mute failed'); }
+    } else if (muted || fs.existsSync(F.mute)) {
+        restoreToast();
+    }
+}
+
 /* ---------------- cleanup ---------------- */
 function cleanAll() {
+    try { restoreToast(); } catch (e) { /* ignore */ }
     try { setHostsBlock([]); } catch (e) { log('clean hosts error:', e.message); }
     hostsTouched = false;
     try { writeAtomic(F.webRules, '[]'); } catch (e) { /* ignore */ }
@@ -842,6 +935,7 @@ let tickCount = 0;
 let tickBusy = false;
 
 async function tickInner() {
+    ensureHelperScripts();
     heartbeat(F.guardPid);
     const state = readState();
     mergeHeld(state.rules);
@@ -871,7 +965,9 @@ async function tickInner() {
     const bsig = JSON.stringify(rules);
     if (bsig !== backupSig) { backupSig = bsig; writeBackup(rules); }
 
-    const eff = buildEffective(rules, readAliases());
+    const live = rules.filter((r) => !(r.breakUntil && r.breakUntil > now));      // Light mode break cholar somoy block pause
+    const eff = buildEffective(live, readAliases());
+    ensureMute(rules.some((r) => r.intensity === 'deep'));
     const off = clockOffset();
     const wj = JSON.stringify(eff.web.map((w) => Object.assign({}, w, { endAt: Math.round(w.endAt - off) })));
     if (wj !== webSig) { webSig = wj; if (!writeAtomic(F.webRules, wj)) log('web-rules write failed'); }

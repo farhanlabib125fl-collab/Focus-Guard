@@ -15,8 +15,8 @@
   "devDependencies": {
     "@fontsource/baloo-da-2": "^5.0.0",
     "electron": "^44.7.0",
-    "electron-builder": "^25.1.8",
-    "tailwindcss": "^3.4.17"
+    "electron-builder": "^26.15.3",
+    "tailwindcss": "^3.4.19"
   },
   "build": {
     "appId": "com.focusguard.app",

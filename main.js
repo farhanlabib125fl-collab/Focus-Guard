@@ -524,7 +524,7 @@ ConvertTo-Json -InputObject @($items) -Compress
             if (fresh === null) return;
 
             const off = G.clockOffset();
-            const freshTrusted = off ? fresh.map((r) => Object.assign({}, r, { endAt: r.endAt + off })) : fresh;
+            const freshTrusted = off ? fresh.map((r) => Object.assign({}, r, { endAt: r.endAt + off }, r.breakUntil ? { breakUntil: r.breakUntil + off } : {})) : fresh;
             const merged = mergeRules(G.readState().rules, freshTrusted, G.nowMs());
             writeStateIfChanged(merged);
             const inUi = new Set(fresh.map(ruleKey));
