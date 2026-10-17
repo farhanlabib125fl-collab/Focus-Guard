@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Focus Guard</title>
 <link rel="stylesheet" href="fonts/fonts.css">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Baloo+Da+2:wght@500;600;700;800&family=Caveat:wght@500;600&display=swap">
 <style>
 :root{--bg:#0b5a78;--dark:#06283a;--dark2:#031621;--pale:#cfe6f2;--chipbg:#cfe9f5;--chipfg:#0b4a63;--cream:#F7F5ED;--yel:#FACC15;--line:#e3dfd1;--mute:#6b6b63}
 html[data-theme=forest]{--bg:#0B6A3B;--dark:#062f1b;--dark2:#03170d;--pale:#cfe9d6;--chipbg:#d3ecd9;--chipfg:#0b5a32}
@@ -15,7 +14,7 @@ html[data-theme=crimson]{--bg:#9f1239;--dark:#4c0519;--dark2:#2a020d;--pale:#fbd
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 html{font-size:clamp(13px,.88vw,19px);-webkit-text-size-adjust:100%;scrollbar-width:none}html::-webkit-scrollbar{display:none}
-body{margin:0;background:var(--bg);color:#000;font-family:'Baloo 2','Baloo Da 2',system-ui,sans-serif;font-weight:600;min-height:100vh;min-height:100dvh;line-height:1.5;-webkit-user-select:none;user-select:none}
+body{margin:0;background:var(--bg);color:#000;font-family:'Baloo Da 2',system-ui,sans-serif;font-weight:600;min-height:100vh;min-height:100dvh;line-height:1.5;-webkit-user-select:none;user-select:none}
 input,select{font:inherit}input{-webkit-user-select:text;user-select:text}
 button{font:inherit;color:inherit;cursor:pointer}
 :focus-visible{outline:3px solid #fff;outline-offset:3px}
@@ -464,10 +463,9 @@ const SITE_PRESETS={
  tiktok:{name:'TikTok',domains:['tiktok.com'],sections:[{id:'explore',label:'Explore',paths:['/explore']},{id:'live',label:'Live',paths:['/live']},{id:'home',label:'For You',paths:['/']}]},
  x:{name:'X (Twitter)',domains:['x.com','twitter.com'],sections:[{id:'explore',label:'Explore',paths:['/explore']},{id:'home',label:'Home feed',paths:['/home']}]},
  reddit:{name:'Reddit',domains:['reddit.com','redd.it'],sections:[{id:'popular',label:'Popular',paths:['/r/popular','/r/all']},{id:'home',label:'Home feed',paths:['/']}]}};
-const SUB_SCOPES={Youtube:[['shorts','Shorts'],['videos','Videos'],['live','Live'],['posts','Posts']],Facebook:[['fb_reels','Reels'],['fb_video','Video'],['fb_post','Post']],Instagram:[['ig_reels','Reels'],['ig_post','Post']],Reddit:[['rd_popular','Popular'],['rd_home','Home feed']],TikTok:[['tt_explore','Explore'],['tt_live','Live'],['tt_home','For You']],X:[['x_explore','Explore'],['x_home','Home feed']],Spotify:[['sp_music','Music'],['sp_podcast','Podcasts']],Netflix:[['nf_movies','Movies'],['nf_series','Series']],WhatsApp:[['wa_chats','Chats'],['wa_status','Status'],['wa_calls','Calls']],Messenger:[['ms_chats','Chats'],['ms_story','Story'],['ms_calls','Calls']],Telegram:[['tg_chats','Chats'],['tg_channels','Channels']],Discord:[['dc_servers','Servers'],['dc_dms','Messages']],Twitch:[['tw_live','Live'],['tw_video','Video']]};
-const GENERIC_SUBS=[['g_reels','Reels'],['g_video','Video'],['g_post','Post'],['g_story','Story']];
+const SUB_SCOPES={Youtube:[['shorts','Shorts'],['videos','Videos'],['live','Live'],['posts','Posts']],Facebook:[['fb_reels','Reels'],['fb_video','Video'],['fb_post','Post']],Instagram:[['ig_reels','Reels'],['ig_post','Post']],Reddit:[['rd_popular','Popular'],['rd_home','Home feed']],TikTok:[['tt_explore','Explore'],['tt_live','Live'],['tt_home','For You']],X:[['x_explore','Explore'],['x_home','Home feed']]};
 const APP_PATHS={shorts:{paths:['/shorts','*/shorts']},videos:{paths:['/watch','/embed'],hosts:['youtu.be']},live:{paths:['/live']},posts:{paths:['/post','*/community']},fb_reels:{paths:['/reel','/reels','/share/r','*/reel']},fb_video:{paths:['/watch','/videos','*/videos','/share/v'],hosts:['fb.watch']},fb_post:{paths:['/posts','*/posts','/permalink.php','/photo','/photo.php','*/photos','/story.php','/share/p']},ig_reels:{paths:['/reels','/reel','*/reel','*/reels']},ig_post:{paths:['/p','*/p']},rd_popular:{paths:['/r/popular','/r/all']},rd_home:{paths:['/']},tt_explore:{paths:['/explore']},tt_live:{paths:['/live']},tt_home:{paths:['/']},x_explore:{paths:['/explore']},x_home:{paths:['/home']}};
-const subsFor=k=>SUB_SCOPES[k]||GENERIC_SUBS;
+const subsFor=k=>{const a=SUB_SCOPES[k];return a&&a.some(([id])=>APP_PATHS[id])?a:[]};
 const QUICK_SITES=[['Reddit','reddit.com'],['Netflix','netflix.com'],['X (Twitter)','x.com'],['TikTok','tiktok.com'],['Instagram','instagram.com']];
 const EXTRA_APPS=['LinkedIn','Threads','Tumblr','Quora','Skype','Zoom','Slack','Signal','Viber','imo','Likee','Bigo Live','Kwai','Roblox','Minecraft','Free Fire','PUBG Mobile','Among Us','Clash of Clans','Candy Crush','Amazon Prime Video','Disney+ Hotstar','Hulu','YouTube Music','Gmail','Google Chrome','Telegram X','Line','WeChat','Medium','Clubhouse','Bumble','Tinder','Uber','Pathao','Foodpanda','Daraz','Amazon','Chess.com','Duolingo'];
 
@@ -629,7 +627,7 @@ $('siteIn').addEventListener('input',()=>setSiteMsg(''));
 
 /* ================= block settings modal ================= */
 let mode='edit',curKey=null,strengthenId=null,mLast=null,cfmOpen=false;
-const lockBase=l=>new Set(Array.isArray(l.scopeIds)?l.scopeIds:getScopes(l.key).filter(i=>i.state).map(i=>i.id));
+const lockBase=l=>{const b=new Set(Array.isArray(l.scopeIds)?l.scopeIds:getScopes(l.key).filter(i=>i.state).map(i=>i.id));if(TARGETS[l.key]&&TARGETS[l.key].kind==='app'&&getScopes(l.key).length===1)b.add('all');return b};
 const strengthenBase=()=>{const l=strengthenId&&getLockById(strengthenId);return l?lockBase(l):null};
 function revertToLock(l){const base=lockBase(l);scopeStore[l.key]=getScopes(l.key).filter(i=>i.id==='all'||!i.custom||base.has(i.id)).map(i=>{i.state=base.has(i.id);return i});saveConfig()}
 function openConfig(key,strengthen=false){const ex=getLockByKey(key);if(ex&&!strengthen){viewLock(ex);return}if(strengthen&&!ex)return;
@@ -645,7 +643,7 @@ function renderModal(){
  const t=TARGETS[curKey],isSite=t.kind==='website',name=esc(displayName(curKey)),view=mode==='view',lock=view?getLockById(viewedLockId):null,base=strengthenBase(),vb=lock?lockBase(lock):null,v=isSite?'w':'a';
  if(view&&!lock){closeModal();return}
  const rows=getScopes(curKey).map((s,i)=>{const on=view?vb.has(s.id):s.state,lk=base&&base.has(s.id),dis=view||lk;
-  const crm=s.custom&&!view?`<button type="button" class="rm2" data-rmc="${esc(s.id)}" ${lk?'disabled':''} aria-label="Remove ${esc(s.label)}">${ic('x',3)}</button>`:'';const wrapC=h=>s.custom?`<div class="crow">${h}${crm}</div>`:h;return wrapC(`<button type="button" class="srow${dis?' dis':''}${lk?' lk':''}" role="checkbox" aria-checked="${on}" data-i="${i}" ${dis?'aria-disabled="true"':''} ${lk?'title="Already locked"':''}><span>${esc(s.label)}${s.id==='all'?` <small class="pr">(You can't enter)</small>`:''}</span><span class="mk${on?' on':''}">${ic(on?'check':'x',3.2)}</span></button>`)}).join('')+((!isSite&&getScopes(curKey).length>1&&!getScopes(curKey).slice(1).some(x=>x.paths&&x.paths.length))?'<p class="note2">Heads up: this app can\'t be blocked section by section. Picking any section closes the whole app.</p>':'');
+  const crm=s.custom&&!view?`<button type="button" class="rm2" data-rmc="${esc(s.id)}" ${lk?'disabled':''} aria-label="Remove ${esc(s.label)}">${ic('x',3)}</button>`:'';const wrapC=h=>s.custom?`<div class="crow">${h}${crm}</div>`:h;return wrapC(`<button type="button" class="srow${dis?' dis':''}${lk?' lk':''}" role="checkbox" aria-checked="${on}" data-i="${i}" ${dis?'aria-disabled="true"':''} ${lk?'title="Already locked"':''}><span>${esc(s.label)}${s.id==='all'?` <small class="pr">(You can't enter)</small>`:''}</span><span class="mk${on?' on':''}">${ic(on?'check':'x',3.2)}</span></button>`)}).join('');
  let bottom;
  if(view){const bl=`${name} blocked`;
   bottom=`<hr class="hr"><div class="sec">Focus timer running</div>`+(isSite
@@ -789,7 +787,7 @@ function restoreRules(list){if(!Array.isArray(list))return 0;const now=Date.now(
   if(r.kind==='app'){const t=APPS.find(a=>nk(a.label)===nk(r.target));if(t)key=t.key;else{const c=CATALOG.find(x=>nk(x.label)===nk(r.target));if(c){addAppTarget(c.key,c.label,false);key=c.key}else if(APPS.filter(a=>a.custom).length<MAX_CUSTOM_APPS){key='app-c'+(customAppSeq+1);addAppTarget(key,r.target.slice(0,24))}}}
   else{const host=(typeof r.host==='string'&&r.host)||(Array.isArray(r.domains)&&r.domains[0])||null;if(!host||!parseSite(host))return;
    const slot=SITES.find(x=>!getLockByKey(x.key)&&!urlStore[x.key])||addSiteSlot()||SITES.find(x=>!getLockByKey(x.key));if(!slot)return;key=slot.key;urlStore[key]=String(host).slice(0,300);delete scopeStore[key];rebuildSiteScopes(key)}
-  if(!key||!TARGETS[key]||getLockByKey(key))return;const l2=getScopes(key);l2[0].state=!!r.all;const secs=Array.isArray(r.sections)?r.sections:[];l2.slice(1).forEach(i=>{if(r.all||secs.some(s=>s&&s.label===i.label))i.state=true});
+  if(!key||!TARGETS[key]||getLockByKey(key))return;const l2=getScopes(key);l2[0].state=!!r.all||(TARGETS[key].kind==='app'&&l2.length===1);const secs=Array.isArray(r.sections)?r.sections:[];l2.slice(1).forEach(i=>{if(r.all||secs.some(s=>s&&s.label===i.label))i.state=true});
   if(TARGETS[key].kind==='website')secs.forEach(s=>{if(!s||typeof s.label!=='string'||l2.some(i=>i.label===s.label)||l2.filter(i=>i.custom).length>=MAX_CUSTOM_RULES)return;const it={id:'c:'+nk(s.label).slice(0,40),label:s.label.slice(0,60),state:true,custom:true};if(Array.isArray(s.paths)&&s.paths.length)it.paths=s.paths.filter(x=>typeof x==='string').slice(0,6);if(Array.isArray(s.hosts)&&s.hosts.length)it.hosts=s.hosts.filter(x=>typeof x==='string').slice(0,6);l2.push(it)});
   locks.push({id:now.toString(36)+Math.random().toString(36).slice(2,6),key,name:displayName(key),rule:buildRule(key),startedAt:now,endAt:r.endAt,lastSeen:now,minutes:Math.max(1,Math.ceil((r.endAt-now)/60000)),intensity:(r.intensity==='deep'||r.intensity==='light'||r.intensity==='standard')?r.intensity:settings.intensity,title:TARGETS[key].kind==='website'?'Website Blocked!':'App Blocked!',message:buildBlockMessage(key),scopeIds:l2.filter(i=>i.state).map(i=>i.id)});added++}catch(e){}});
  if(added){saveLocks();saveConfig();saveLayout();renderAll();ensureTicking();updateTitle(now);updatePill(now)}return added}

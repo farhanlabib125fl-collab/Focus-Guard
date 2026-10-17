@@ -6,7 +6,7 @@ const http = require('http');
 const { exec, execSync, execFile, execFileSync, spawn } = require('child_process');
 
 const IS_WIN = process.platform === 'win32';
-const DATA_DIR = path.join(process.env.ProgramData || 'C:\\ProgramData', 'ComebackFocus');
+const DATA_DIR = path.join(process.env.ProgramData || 'C:\\ProgramData', 'Focus Guard');
 const P = (n) => path.join(DATA_DIR, n);
 const F = {
     state: P('state.json'),
@@ -21,9 +21,9 @@ const F = {
     mute: P('mute.json'),
     log: P('guardian.log')
 };
-const TASK_GUARD = 'ComebackGuardian';
-const TASK_UI = 'ComebackUI';
-const REG_KEY = 'HKLM\\SOFTWARE\\ComebackFocus';
+const TASK_GUARD = 'Focus Guard';
+const TASK_UI = 'Focus Guard UI';
+const REG_KEY = 'HKLM\\SOFTWARE\\Focus Guard';
 
 const HOSTS_OVERRIDE = process.env.COMEBACK_HOSTS || '';      
 const HOSTS_PATH = HOSTS_OVERRIDE ||
@@ -712,20 +712,20 @@ $hosts = Join-Path $env:SystemRoot 'System32\drivers\etc\hosts'
 $c = [IO.File]::ReadAllText($hosts)
 $n = [regex]::Replace($c, '(?s)\r?\n?# --- Focus Guard START ---.*?# --- Focus Guard END ---[^\r\n]*(\r?\n)?', '')
 if ($n -ne $c) { [IO.File]::WriteAllText($hosts, $n) }
-$mf = Join-Path $env:ProgramData 'ComebackFocus\mute.json'
+$mf = Join-Path $env:ProgramData 'Focus Guard\mute.json'
 if (Test-Path $mf) {
     $tk = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\PushNotifications'
     try { $m = Get-Content -Raw $mf | ConvertFrom-Json } catch { $m = $null }
     if ($m -and $m.prev -ne $null) { Set-ItemProperty -Path $tk -Name ToastEnabled -Value ([int]$m.prev) -Type DWord } else { Remove-ItemProperty -Path $tk -Name ToastEnabled }
 }
-reg delete 'HKLM\SOFTWARE\ComebackFocus' /f | Out-Null
-schtasks /Delete /TN ComebackGuardian /F | Out-Null
-schtasks /Delete /TN ComebackUI /F | Out-Null
+reg delete 'HKLM\SOFTWARE\Focus Guard' /f | Out-Null
+schtasks /Delete /TN "Focus Guard" /F | Out-Null
+schtasks /Delete /TN "Focus Guard UI" /F | Out-Null
 ipconfig /flushdns | Out-Null
 `;
 
 const LOCKCHECK_PS1 = String.raw`$ErrorActionPreference = 'SilentlyContinue'
-$dir = Join-Path $env:ProgramData 'ComebackFocus'
+$dir = Join-Path $env:ProgramData 'Focus Guard'
 $off = 0
 try { $off = [double]((Get-Content -Raw (Join-Path $dir 'clock.json') | ConvertFrom-Json).offset) } catch { }
 $now = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() + $off
@@ -736,7 +736,7 @@ try {
 } catch { }
 if (-not $active) {
     try {
-        $k = [Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::LocalMachine, [Microsoft.Win32.RegistryView]::Registry64).OpenSubKey('SOFTWARE\ComebackFocus')
+        $k = [Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::LocalMachine, [Microsoft.Win32.RegistryView]::Registry64).OpenSubKey('SOFTWARE\Focus Guard')
         $b = $k.GetValue('S')
         if ($b) {
             $rules = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($b)) | ConvertFrom-Json
@@ -749,7 +749,6 @@ if ($active) { exit 7 } else { exit 0 }
 
 let aclDone = false;
 function lockDownDataDir() {
-    return;
     if (!IS_WIN || aclDone) return;
     if (!isAdminSync()) return;
     aclDone = true;
@@ -809,7 +808,7 @@ function writeBackup(rules) {
     if (!IS_WIN) return;
     try {
         const b64 = Buffer.from(JSON.stringify(rules), 'utf8').toString('base64');
-        if (b64.length > 24000) return;
+        if (b64.length > 30000) return;
         execFileSync('reg', ['add', REG_KEY, '/v', 'S', '/t', 'REG_SZ', '/d', b64, '/f'], { stdio: 'ignore', windowsHide: true });
     } catch (e) { log('backup write failed:', e.message); }
 }

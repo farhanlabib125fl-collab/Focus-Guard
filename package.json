@@ -5,8 +5,8 @@
   "main": "main.js",
   "author": "Focus Guard",
   "scripts": {
-    "prep": "node tools/prepare-assets.js && tailwindcss -c tailwind.config.js -i src/input.css -o tailwind.css --minify",
-    "start": "npm run prep && node tools/set-dev-name.js && npx electron main.js",
+    "prep": "node tools/prepare-assets.js",
+    "start": "npm run prep && node tools/set-dev-icon.js && npx electron main.js",
     "pack": "npm run prep && electron-builder --win --dir",
     "build": "npm run prep && electron-builder --win",
     "devicon": "node tools/set-dev-icon.js"
@@ -17,24 +17,23 @@
     "@fontsource/baloo-da-2": "^5.0.0",
     "electron": "^44.7.0",
     "electron-builder": "^25.1.8",
-    "rcedit": "^5.0.2",
-    "tailwindcss": "^3.4.17"
+    "rcedit": "^5.0.2"
   },
   "build": {
     "appId": "com.focusguard.app",
     "productName": "Focus Guard",
+    "afterPack": "tools/after-pack.js",
     "directories": {
       "buildResources": "build",
       "output": "dist"
     },
+    "extraResources": ["focusguard.ico"],
     "files": [
       "main.js",
       "guardian.js",
       "preload.js",
       "index.html",
-      "focusguard.ico",
       "package.json",
-      "tailwind.css",
       "fonts/**/*"
     ],
     "win": {
@@ -49,6 +48,8 @@
       "installerIcon": "focusguard.ico",
       "uninstallerIcon": "focusguard.ico",
       "shortcutName": "Focus Guard",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
       "deleteAppDataOnUninstall": false
     }
   }

@@ -5,16 +5,6 @@ const fs = require('fs');
 const { exec, spawn } = require('child_process');
 const G = require('./guardian.js');
 
-/*
- * Focus Guard - ekhon ei ekta exe-ই 3 rokom bhumikay chole:
- *
- *   comeback.exe              -> UI (window, tray, notification)
- *   comeback.exe --guardian   -> background engine (window nei). Task Scheduler eta chalay
- *   comeback.exe --cleanup    -> ekbar clean kore ber hoye jay
- *
- * Asol block korar kaj guardian.js kore. UI "End task" korleo guardian bondho hoy na, ar UI nijei abar chalu hoy.
- */
-
 const IS_WIN = process.platform === 'win32';
 const ARGV = process.argv.slice(1);
 const ROLE = ARGV.includes('--guardian') ? 'guardian' : (ARGV.includes('--cleanup') ? 'cleanup' : 'ui');
@@ -27,8 +17,8 @@ const launchInfo = () => ({
 
 if (ROLE !== 'ui') {
     /* ------------------------- guardian / cleanup role ------------------------- */
-    app.disableHardwareAcceleration();                 // window nei, GPU lagbe na
-    app.on('window-all-closed', () => { /* kichu na: process cholte thakbe */ });
+    app.disableHardwareAcceleration();                
+    app.on('window-all-closed', () => { /*🫡🫡🫡*/ });
     G.run({ role: ROLE, launch: launchInfo() });
 } else {
     startUI();
@@ -36,7 +26,7 @@ if (ROLE !== 'ui') {
 
 function startUI() {
     const { F, P } = G;
-    const ICON_PATH = path.join(__dirname, 'focusguard.ico');
+    const ICON_PATH = app.isPackaged ? path.join(process.resourcesPath, 'focusguard.ico') : path.join(__dirname, 'focusguard.ico');
 
     let mainWindow = null;
     let isBlockingActive = false;
@@ -54,11 +44,9 @@ function startUI() {
 
     if (IS_WIN) { try { app.setAppUserModelId('com.focusguard.app'); } catch (e) { /* ignore */ } }
 
-    // Dev mode (npm start) e Windows notification/taskbar e "Electron" dekhay, karon AppUserModelId er sathe kono Start Menu shortcut thake na.
-    // Tai ekta "Focus Guard" shortcut banano hoy jar AppUserModelId same; tokhon Windows oi shortcut er name use kore.
     function ensureDevShortcut() {
-        if (!IS_WIN || app.isPackaged) return;
-        try {
+        if (!IS_WIN) return;
+        if (!app.isPackaged) try {
             const lnk = path.join(process.env.APPDATA || '', 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Focus Guard.lnk');
             shell.writeShortcutLink(lnk, 'replace', {
                 target: process.execPath,
@@ -69,6 +57,12 @@ function startUI() {
                 iconIndex: 0,
                 appUserModelId: 'com.focusguard.app'
             });
+        } catch (e) { /* ignore */ }
+        try {
+            const key = 'HKCU\\Software\\Classes\\AppUserModelId\\com.focusguard.app';
+            const reg = (name, val) => spawn('reg', ['add', key, '/v', name, '/t', 'REG_SZ', '/d', val, '/f'], { windowsHide: true, stdio: 'ignore' }).on('error', () => {});
+            reg('DisplayName', 'Focus Guard');
+            if (fs.existsSync(ICON_PATH)) reg('IconUri', ICON_PATH);
         } catch (e) { /* ignore */ }
     }
 
@@ -295,44 +289,6 @@ ConvertTo-Json -InputObject @($items) -Compress
         return { ok: true, name: r.name || null };
     });
 
-    const HOOK_JS = String.raw`(function () {
-  if (window.__cbHook) return;
-  window.__cbHook = true;
-  var api = window.cbApi;
-  var input = document.getElementById('new-app-name');
-  var btn = document.getElementById('add-app-btn');
-  if (!api || !input || !btn) return;
-  var bypass = false, busy = false;
-  function isCatalog(name) {
-    var lower = name.toLowerCase();
-    return CATALOG.some(function (c) {
-      return c.label.toLowerCase() === lower || c.key.toLowerCase() === lower || (c.key === 'X' && lower === 'twitter');
-    });
-  }
-  function proceed() { bypass = true; try { btn.click(); } finally { bypass = false; } }
-  function handle(e) {
-    if (bypass) return;
-    var name = input.value.trim().replace(/\s+/g, ' ');
-    if (!name || name.length > 24 || isCatalog(name)) return;
-    e.stopImmediatePropagation();
-    e.preventDefault();
-    if (busy) return;
-    busy = true;
-    showAppError('Checking app...');
-    api.validateApp(name).then(function (res) {
-      busy = false;
-      if (res && res.ok) { showAppError(''); proceed(); }
-      else showAppError((res && res.message) || 'App not found');
-    }).catch(function () { busy = false; proceed(); });
-  }
-  document.addEventListener('click', function (e) {
-    if (e.target && e.target.closest && e.target.closest('#add-app-btn')) handle(e);
-  }, true);
-  document.addEventListener('keydown', function (e) {
-    if (e.key === 'Enter' && e.target === input) handle(e);
-  }, true);
-})();`;
-
     /* ------------------------------------------------------------------ */
     /*  Window                                                             */
     /* ------------------------------------------------------------------ */
@@ -411,9 +367,6 @@ ConvertTo-Json -InputObject @($items) -Compress
         try { const ic = appIcon(); if (ic) mainWindow.setIcon(ic); } catch (e) { /* ignore */ }
         mainWindow.removeMenu();   // File/Edit/View/Window menu bar (sada ongsho) bad
         mainWindow.loadFile('index.html');
-        mainWindow.webContents.on('did-finish-load', () => {
-            mainWindow.webContents.executeJavaScript(HOOK_JS).catch((e) => console.error('hook failed:', e.message));
-        });
 
         mainWindow.webContents.on('render-process-gone', () => {
             try { if (mainWindow && !mainWindow.isDestroyed()) mainWindow.reload(); } catch (e) { /* ignore */ }
@@ -515,7 +468,7 @@ ConvertTo-Json -InputObject @($items) -Compress
         if (!adminOk || guardianTries > 1) startGuardianDirect();
         if (adminOk) {
             G.installTasks(launchInfo()).then((ok) => {
-                if (ok) G.schtasks('/Run /TN "ComebackGuardian"');
+                if (ok) G.schtasks('/Run /TN "Focus Guard"');
             });
         }
     }
