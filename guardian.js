@@ -749,6 +749,9 @@ if ($active) { exit 7 } else { exit 0 }
 
 let aclDone = false;
 function lockDownDataDir() {
+    // BONDHO: pura folder e tala dile admin chhara chalano UI state.json / ui.pid likhte pare na, tai kono block-i guardian er kache pouchay na.
+    // (shudhu lockcheck.ps1 / cleanup.ps1 e file-level tala dewa ache - ensureHelperScripts() dekho)
+    return;
     if (!IS_WIN || aclDone) return;
     if (!isAdminSync()) return;
     aclDone = true;
@@ -759,9 +762,26 @@ function lockDownDataDir() {
     } catch (e) { log('acl failed:', e.message); }
 }
 
+/* Ager version e pura folder e tala (Users = shudhu read) deowa hoyechhilo. Oi tala ekbar boshe gele thake (folder er ACL permanent),
+ * tai UI (admin chhara) state.json likhte parto na. Admin hole ekbar sei tala shoriye Users ke abar Modify dei. */
+const ACL_FIX_MARK = 'acl-fix-v1';
+function repairDataDirAcl() {
+    if (!IS_WIN) return;
+    const mark = P(ACL_FIX_MARK);
+    if (fs.existsSync(mark)) return;
+    if (!isAdminSync()) return;
+    try {
+        execFileSync('icacls', [DATA_DIR, '/reset', '/T', '/C', '/Q'], { stdio: 'ignore', windowsHide: true, timeout: 20000 });
+        execFileSync('icacls', [DATA_DIR, '/grant', '*S-1-5-32-545:(OI)(CI)M', '/C', '/Q'], { stdio: 'ignore', windowsHide: true, timeout: 20000 });
+        fs.writeFileSync(mark, '1');
+        log('data folder permissions repaired');
+    } catch (e) { log('acl repair failed:', e.message); }
+}
+
 function ensureDataDir() {
     fs.mkdirSync(DATA_DIR, { recursive: true });
     if (IS_WIN) {
+        repairDataDirAcl();
         lockDownDataDir();
         try { writeAtomic(P('cleanup.ps1'), CLEANUP_PS1); writeAtomic(P('lockcheck.ps1'), LOCKCHECK_PS1); } catch (e) { /* ignore */ }
     }
@@ -878,7 +898,7 @@ function ensureTasks(launch, isAdmin) {
     });
 }
 
-/* ---------------- notification mute (Deep focus) ---------------- */
+/* ---------------- notification mute (Hell Mode) ---------------- */
 const TOAST_KEY = 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\PushNotifications';
 let muted = false;
 let muteErrAt = -1e9;
